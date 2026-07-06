@@ -1,0 +1,83 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "NovaStream API",
+    "version": "1.0.0-RC",
+    "description": "NovaStream streaming platform API. All endpoints prefixed with `/api`."
+  },
+  "servers": [
+    { "url": "http://localhost:3000", "description": "Development" }
+  ],
+  "paths": {
+    "/api/health/simple": {
+      "get": { "summary": "Simple health check (plain text OK)", "tags": ["Health"] }
+    },
+    "/api/health/full": {
+      "get": { "summary": "Full health status with server/DB/metrics", "tags": ["Health"] }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Login with username/password",
+        "tags": ["Auth"],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "username": { "type": "string" }, "password": { "type": "string" } }, "required": ["username", "password"] } } } },
+        "responses": { "200": { "description": "Login successful" }, "401": { "description": "Invalid credentials" } }
+      }
+    },
+    "/api/auth/logout": {
+      "post": { "summary": "Logout and invalidate session", "tags": ["Auth"] }
+    },
+    "/api/auth/me": {
+      "get": { "summary": "Get current user profile", "tags": ["Auth"] }
+    },
+    "/api/content": {
+      "get": { "summary": "List content (paginated, filterable)", "tags": ["Content"] }
+    },
+    "/api/content/{slug}": {
+      "get": { "summary": "Get content detail by slug", "tags": ["Content"], "parameters": [{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }] }
+    },
+    "/api/content/{slug}/stream": {
+      "get": { "summary": "Get stream info for content", "tags": ["Content"], "parameters": [{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }] }
+    },
+    "/api/categories": {
+      "get": { "summary": "List content categories", "tags": ["Content"] }
+    },
+    "/api/categories/{category}": {
+      "get": { "summary": "Get content by category", "tags": ["Content"], "parameters": [{ "name": "category", "in": "path", "required": true, "schema": { "type": "string" } }] }
+    },
+    "/api/search": {
+      "get": { "summary": "Search content by query", "tags": ["Search"], "parameters": [{ "name": "q", "in": "query", "schema": { "type": "string" } }] }
+    },
+    "/api/progress/continue-watching": {
+      "get": { "summary": "Get continue-watching list", "tags": ["Progress"] }
+    },
+    "/api/progress/save": {
+      "post": { "summary": "Save playback progress", "tags": ["Progress"] }
+    },
+    "/api/history": {
+      "get": { "summary": "Get watch history (paginated)", "tags": ["History"] },
+      "delete": { "summary": "Clear watch history", "tags": ["History"] }
+    },
+    "/api/favorites": {
+      "get": { "summary": "List favorites", "tags": ["Favorites"] }
+    },
+    "/api/favorites/{contentId}": {
+      "post": { "summary": "Toggle favorite", "tags": ["Favorites"], "parameters": [{ "name": "contentId", "in": "path", "required": true, "schema": { "type": "string" } }] }
+    },
+    "/api/admin/users": {
+      "get": { "summary": "List all users (admin)", "tags": ["Admin"] },
+      "post": { "summary": "Create user (admin)", "tags": ["Admin"] }
+    },
+    "/api/admin/stats": {
+      "get": { "summary": "Server statistics (admin)", "tags": ["Admin"] }
+    },
+    "/api/admin/logs": {
+      "get": { "summary": "Recent log lines (admin)", "tags": ["Admin"] }
+    },
+    "/api/admin/system/health": {
+      "get": { "summary": "System health details (admin)", "tags": ["Admin"] }
+    },
+    "/api/stream/token": {
+      "post": { "summary": "Request streaming token", "tags": ["Stream"] }
+    }
+  }
+}

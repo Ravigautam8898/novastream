@@ -1,0 +1,241 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-height: 100vh;
+    background-color: #141414;
+    color: #ffffff;
+    font-family: 'Noto Sans', 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #141414;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+  /* Hide scrollbar utility (for content rows) */
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  ::selection {
+    background: rgba(229, 9, 20, 0.3);
+    color: #fff;
+  }
+
+  /* ── Mobile / Touch Optimizations ── */
+
+  /* Use dynamic viewport height on supporting browsers */
+  .min-h-dynamic {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .h-dynamic {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  /* Prevent iOS callout (copy/paste popup) on video & interactive elements */
+  video, .no-callout {
+    -webkit-touch-callout: none;
+  }
+
+  /* Prevent text size adjustment on orientation change */
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Safe area insets for notched devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Prevent double-tap zoom on video player */
+  .video-player-container {
+    touch-action: manipulation;
+  }
+
+  /* Rotate device prompt animation */
+  @keyframes rotate-pulse {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(90deg); }
+    50% { transform: rotate(90deg); }
+    75% { transform: rotate(0deg); }
+  }
+
+  .animate-rotate-pulse {
+    animation: rotate-pulse 3s ease-in-out infinite;
+  }
+
+  /* Hide scrollbars on mobile fullscreen player areas */
+  .player-fullscreen {
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: auto;
+  }
+
+  /* Mobile tap highlight color */
+  .tap-highlight {
+    -webkit-tap-highlight-color: rgba(229, 9, 20, 0.3);
+  }
+
+  /* Ensure controls are visible on mobile (minimum touch target) */
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  @media (max-width: 768px) {
+    /* On mobile portrait, player sizes to 16:9 aspect ratio via inline style.
+       No fixed height — content flows naturally below with no black gap. */
+    .mobile-player-full {
+      margin-top: 0 !important;
+    }
+
+    /* Mobile episode overlay adjustments */
+    .episode-overlay-mobile {
+      font-size: 0.75rem;
+      max-width: 70%;
+    }
+
+    /* Small floating rotate hint banner */
+    .rotate-hint-banner {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      right: 1rem;
+      z-index: 20;
+      background: rgba(20, 20, 20, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 0.75rem;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      animation: slideUp 0.3s ease-out;
+    }
+  }
+
+  @media (orientation: landscape) and (max-height: 500px) {
+    /* On very short landscape (typical mobile landscape), 
+       give the player maximum space */
+    .video-player-container {
+      max-height: 100dvh;
+    }
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-netflix-red text-white font-semibold px-6 py-2.5 rounded
+      hover:bg-netflix-red-hover transition-colors duration-200
+      focus:outline-none focus:ring-2 focus:ring-netflix-red focus:ring-offset-2 focus:ring-offset-netflix-dark
+      disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-netflix-dark-3 text-netflix-text font-semibold px-6 py-2.5 rounded
+      hover:bg-netflix-dark-4 transition-colors duration-200
+      focus:outline-none focus:ring-2 focus:ring-netflix-dark-4 focus:ring-offset-2 focus:ring-offset-netflix-dark
+      disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .input-field {
+    @apply w-full bg-netflix-dark-2 border border-netflix-border rounded px-4 py-3
+      text-netflix-text placeholder-netflix-text-3
+      focus:outline-none focus:border-netflix-text-2 focus:ring-1 focus:ring-netflix-text-2
+      transition-colors duration-200;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .card-hover:hover {
+    @apply scale-105 shadow-2xl z-10;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      #1f1f1f 25%,
+      #2a2a2a 50%,
+      #1f1f1f 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite linear;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .gradient-overlay {
+    background: linear-gradient(
+      to top,
+      rgba(20, 20, 20, 1) 0%,
+      rgba(20, 20, 20, 0) 50%,
+      rgba(20, 20, 20, 0.4) 100%
+    );
+  }
+
+  .gradient-bottom {
+    background: linear-gradient(
+      to top,
+      rgba(20, 20, 20, 1) 0%,
+      transparent 100%
+    );
+  }
+}

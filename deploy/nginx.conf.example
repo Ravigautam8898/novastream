@@ -1,0 +1,167 @@
+# ═══════════════════════════════════════════════════════════════
+# NovaStream — Nginx Production Configuration (HTTPS-ready)
+# ═══════════════════════════════════════════════════════════════
+#
+# Usage:
+#   1. Customize server_name, ssl paths, and proxy_pass
+#   2. Place in /etc/nginx/sites-available/novastream
+#   3. Enable: sudo ln -s /etc/nginx/sites-available/novastream /etc/nginx/sites-enabled/
+#   4. Test: sudo nginx -t
+#   5. Reload: sudo systemctl reload nginx
+#
+# Prerequisites:
+#   - SSL certificate (Let's Encrypt: sudo certbot --nginx -d yourdomain.com)
+#   - Node.js backend running on localhost:5000
+#   - Built client at /var/www/novastream/client/dist
+# ═══════════════════════════════════════════════════════════════
+
+# ── HTTP → HTTPS Redirect (production) ──
+# Uncomment for production:
+# server {
+#     listen 80;
+#     server_name novastream.example.com;
+#     return 301 https://$server_name$request_uri;
+# }
+
+# ── HTTPS Server ──
+server {
+    # Listen on HTTP (for certbot challenges) and HTTPS
+    listen 80;
+    # listen 443 ssl http2;  # Uncomment for HTTPS
+
+    # ── Server name ──
+    server_name novastream.example.com;  # ← CHANGE THIS
+
+    # ── SSL (Let's Encrypt / Certbot) ──
+    # ssl_certificate     /etc/letsencrypt/live/novastream.example.com/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/novastream.example.com/privkey.pem;
+    # ssl_protocols       TLSv1.2 TLSv1.3;
+    # ssl_ciphers         HIGH:!aNULL:!MD5;
+    # ssl_prefer_server_ciphers on;
+    # ssl_session_cache   shared:SSL:10m;
+    # ssl_session_timeout 10m;
+
+    # ── Root directory (built client) ──
+    root /var/www/novastream/client/dist;  # ← CHANGE THIS
+    index index.html;
+
+    # ── Gzip Compression ──
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript
+               text/xml application/xml text/javascript image/svg+xml
+               application/vnd.apple.mpegurl video/mp2t;
+    gzip_min_length 256;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+
+    # ── Security Headers (PPR-010) ──
+    # WARNING: Nginx location blocks that use add_header() OVERRIDE all
+    # inherited add_header directives. Any location with its own add_header
+    # must repeat ALL security headers below.
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=(), display-capture=()" always;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https://image.tmdb.org https://img.youtube.com https://img1.streamraiwind.stream data: blob:; media-src 'self' blob: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api.themoviedb.org https://img.youtube.com https://*.streamraiwind.stream https://jolly-mouse-f41c.annierane.workers.dev; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'self'; object-src 'none'; worker-src 'self' blob:" always;
+
+    # ── API Proxy ──
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000;  # Node.js backend
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+
+        # Buffering (off for streaming)
+        proxy_buffering off;
+        proxy_request_buffering off;
+
+        # Large file support for HLS segments
+        client_max_body_size 100M;
+    }
+
+    # ── Uploads / HLS Files ──
+    # Only if serving local HLS files directly (not via API proxy)
+    location /uploads/ {
+        alias /var/www/novastream/server/uploads/;
+        internal;  # Blocks direct external access
+        add_header Cache-Control "public, max-age=86400";
+    }
+
+    # ── Static Assets (PPR-010: repeat security headers — location add_header overrides server block) ──
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=(), display-capture=()" always;
+        access_log off;
+    }
+
+    # ── Favicon ──
+    location = /favicon.ico {
+        expires 30d;
+        access_log off;
+    }
+    location = /favicon.svg {
+        expires 30d;
+        access_log off;
+    }
+
+    # ── Favicon ──
+    location = /favicon.ico {
+        expires 30d;
+        access_log off;
+    }
+    location = /favicon.svg {
+        expires 30d;
+        access_log off;
+    }
+
+    # ── SPA Fallback (PPR-010: repeat security headers — location add_header overrides server block) ──
+    location / {
+        try_files $uri $uri/ /index.html;
+        expires -1;
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=(), display-capture=()" always;
+    }
+
+    # ── Deny hidden files ──
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # ── Deny sensitive directories ──
+    location ~ /(node_modules|\.git|logs|backups) {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # ── Health Check (direct, no proxy) ──
+    location = /health {
+        access_log off;
+        return 200 "OK";
+        add_header Content-Type text/plain;
+    }
+}

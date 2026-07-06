@@ -1,0 +1,97 @@
+# ═══════════════════════════════════════════════════════════
+# NovaStream - Complete Project Dependencies
+# ═══════════════════════════════════════════════════════════
+#
+# For installation, use the install scripts:
+#   Linux/Mac:  ./install.sh
+#   Windows:    .\install.ps1
+#   Any:        npm run install:all   (after install.sh)
+#
+# ═══════════════════════════════════════════════════════════
+
+# ─── System Requirements ──────────────────────────────────
+# Node.js >= 18.0.0  (>= 20 recommended for Vite 6+)
+# npm >= 9.0.0
+# PM2 (process manager) - installed globally or via npx
+# FFmpeg (video transcoding) - install via system package manager
+# MongoDB Atlas account (cloud) or local MongoDB install
+#
+# Linux system packages for `canvas` native module:
+#   sudo apt install build-essential libcairo2-dev libpango1.0-dev \
+#     libjpeg-dev libgif-dev librsvg2-dev
+#
+# macOS (via Homebrew):
+#   brew install cairo pango jpeg giflib librsvg
+
+# ─── Server Dependencies (server/package.json) ─────────────
+express                    ^4.21.0    # HTTP server framework
+mongoose                   ^8.8.0     # MongoDB ODM
+jsonwebtoken               ^9.0.0     # JWT authentication
+bcryptjs                   ^2.4.3     # Password hashing (cross-platform)
+multer                     ^1.4.5     # File upload handling
+helmet                     ^8.0.0     # Security headers (CSP, XSS)
+cors                       ^2.8.5     # Cross-origin support
+express-rate-limit         ^7.4.0     # Rate limiting middleware
+express-slow-down          ^2.0.0     # Slow down repeated offenders
+express-mongo-sanitize     ^2.2.0     # NoSQL injection prevention
+hpp                        ^0.2.3     # HTTP Parameter Pollution protection
+moviedb-promise            ^4.0.0     # TMDB API wrapper
+pino                       ^9.5.0     # Structured JSON logging
+pino-pretty                ^11.3.0    # Pretty-print Pino logs (dev)
+zod                        ^3.23.0    # Request validation schemas
+dotenv                     ^16.4.5    # Environment variable loading
+canvas                     ^3.2.3     # Server-side image generation (thumbnails)
+                                     # ⚠ Requires system libs: Cairo, Pango, JPEG, GIF, librsvg
+node-telegram-bot-api      ^0.66.0    # Telegram bot (Phase 7)
+
+# ─── Server Dev Dependencies ───────────────────────────────
+nodemon                    ^3.1.0     # Auto-restart during development
+jest                       ^29.7.0    # Testing framework
+supertest                  ^7.0.0     # HTTP testing
+
+# ─── CLI Dependencies (cli/package.json) ───────────────────
+commander                  ^12.1.0    # CLI framework
+chalk                      ^4.1.2     # Colored terminal output (v4 for CJS compat)
+ora                        ^5.4.1     # Terminal spinners (v5 for CJS compat)
+inquirer                   ^8.2.6     # Interactive prompts (v8 for CJS compat)
+mongodb                    ^6.10.0    # MongoDB driver (CLI direct access)
+bcrypt                     ^5.1.1     # Password hashing (CLI)
+
+# ─── Frontend Dependencies (client/package.json) ───────────
+react                      ^18.3.0    # UI framework
+react-dom                  ^18.3.0    # React DOM renderer
+react-router-dom           ^6.28.0    # Client-side routing
+vite                       ^5.4.11    # Build tool (v5 for Node 18 compat)
+@vitejs/plugin-react       ^4.3.0     # Vite React plugin
+tailwindcss                ^3.4.0     # CSS framework
+postcss                    ^8.4.49    # CSS processor (Tailwind dependency)
+autoprefixer               ^10.4.20   # CSS vendor prefixes
+framer-motion              ^11.11.0   # Animations
+axios                      ^1.7.0     # HTTP client
+react-hot-toast            ^2.4.0     # Toast notifications
+hls.js                     ^1.5.0     # HLS video playback
+artplayer                  ^5.4.0     # HTML5 video player
+dompurify                  ^3.4.11    # XSS prevention (client-side)
+
+# ─── Frontend Dev Dependencies ─────────────────────────────
+eslint                     ^9.14.0    # Code linting
+@eslint/js                 ^9.14.0    # ESLint JS config
+
+# ─── Root Dev Dependencies ─────────────────────────────────
+concurrently               ^9.1.0     # Run server + client in parallel (npm run dev)
+
+# ─── External Services ─────────────────────────────────────
+# TMDB API (themoviedb.org) - Free tier, requires API key
+# MongoDB Atlas (cloud.mongodb.com) - Free M0 tier (512MB)
+# Cloudflare (optional) - DNS, CDN, DDoS protection
+# Telegram Bot API (optional) - Server management via chat
+
+# ─── System Tools ──────────────────────────────────────────
+# FFmpeg - Required for video transcoding to HLS format
+#   - Install: sudo apt install ffmpeg (Linux)
+#   - Install: brew install ffmpeg (Mac)
+#   - Install: winget install ffmpeg (Windows)
+#
+# PM2 - Required for process management
+#   - Install: npm install -g pm2
+#   - Or via npx: npx pm2

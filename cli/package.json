@@ -1,0 +1,23 @@
+{
+  "name": "novactl",
+  "version": "1.0.0",
+  "description": "NovaStream Server Management CLI",
+  "bin": {
+    "novactl": "./bin/novactl"
+  },
+  "scripts": {
+    "novactl": "node ./bin/novactl",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "chalk": "^4.1.2",
+    "commander": "^12.1.0",
+    "inquirer": "^8.2.6",
+    "mongodb": "^6.10.0",
+    "ora": "^5.4.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

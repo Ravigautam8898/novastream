@@ -1,0 +1,33 @@
+# ═══════════════════════════════════════════════════════════════
+# NovaStream — Docker Compose Production Override
+# ═══════════════════════════════════════════════════════════════
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This override configures the production deployment:
+#   - Exposes port 80 (Nginx serves client SPA + proxies /api)
+#   - Overrides the command to use the production start script
+#   - Sets production environment variables
+
+version: "3.9"
+
+services:
+  server:
+    ports:
+      - "80:80"       # Nginx on port 80 (serves client + proxies API)
+      - "443:443"     # Nginx on port 443 (HTTPS, when SSL is configured)
+      - "5000:5000"   # Optional: direct API access for debugging
+    environment:
+      - NODE_ENV=production
+      - CLIENT_URL=${CLIENT_URL:-http://localhost}
+      # SSL configuration (set these when using HTTPS)
+      - DOMAIN=${DOMAIN:-localhost}
+      - SSL_CERT_PATH=${SSL_CERT_PATH:-/etc/nginx/ssl}
+    volumes:
+      # Mount SSL certificates for HTTPS (PPR-001)
+      # Create a directory with fullchain.pem and privkey.pem, then:
+      #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+      - ${SSL_CERT_DIR:-./certs}:/etc/nginx/ssl:ro
+    # Override command to use the production start script (Nginx + PM2)
+    command: >
+      sh -c "/app/start.sh"

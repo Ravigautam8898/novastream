@@ -1,0 +1,49 @@
+{
+  "name": "novastream",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NovaStream - Media Streaming Platform",
+  "scripts": {
+    "setup": "bash install.sh",
+    "setup:win": ".\\install.ps1",
+    "install:server": "npm ci --prefix server --no-audit --no-fund",
+    "install:client": "npm ci --prefix client --no-audit --no-fund",
+    "install:cli": "npm ci --prefix cli --no-audit --no-fund",
+    "install:all": "npm run install:server && npm run install:cli && npm run install:client",
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "start": "npm run start --prefix server",
+    "build": "npm run build --prefix client",
+    "start:prod": "npm run build && NODE_ENV=production npm run start --prefix server",
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client",
+    "logs": "tail -f logs/combined.log",
+    "health": "curl -s http://localhost:5000/api/health | python3 -m json.tool || node -e \"fetch('http://localhost:5000/api/health').then(r=>r.json()).then(console.log)\"",
+    "clean": "rm -rf server/node_modules client/node_modules cli/node_modules",
+    "reset": "npm run clean && npm run install:all",
+    "lint": "npm run lint --prefix server && npm run lint --prefix client",
+    "audit:server": "npm audit --prefix server --audit-level=high",
+    "audit:client": "npm audit --prefix client --audit-level=high",
+    "audit:all": "npm run audit:server && npm run audit:client",
+    "pm2:start": "pm2 start ecosystem.config.js --env production",
+    "pm2:restart": "pm2 restart ecosystem.config.js --env production",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:status": "pm2 status",
+    "pm2:logs": "pm2 logs novastream",
+    "release": "node scripts/release.js",
+    "production:check": "node scripts/production-check.js",
+    "deploy": "node scripts/deploy.js",
+    "security:check": "npm run security:check --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "mongodb-memory-server": "^11.2.0",
+    "novastream": "file:"
+  }
+}

@@ -1,0 +1,75 @@
+# ═══════════════════════════════════════════════════════════════
+# NovaStream — Docker Compose (Development & Production)
+# ═══════════════════════════════════════════════════════════════
+#
+# Usage:
+#   Development: docker compose up -d
+#   Production:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Services:
+#   - mongodb: MongoDB 7 (persistent data)
+#   - server: Node.js/Express API (port 5000)
+#   - client (dev): Vite dev server with hot reload (port 5173)
+#
+# The .env file must exist at the project root before running.
+
+version: "3.9"
+
+services:
+  # ── MongoDB ──
+  mongodb:
+    image: mongo:7
+    container_name: novastream-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: novastream
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── Node.js Server ──
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Note: In dev, the full multi-stage Dockerfile builds all stages but
+      # only the final stage (Nginx + Node) is used. For production with
+      # Nginx, use: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+    container_name: novastream-server
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/novastream
+      - NODE_ENV=production
+      - PORT=5000
+    volumes:
+      - server_uploads:/app/server/uploads
+      - server_thumbnails:/app/server/thumbnails
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    command: >
+      sh -c "cd /app/server && node src/app.js"
+
+  # ── Client (Production build via Nginx) ──
+  # In production, the client is built and served by Nginx alongside the API.
+  # For development, use the Vite dev server on the host:
+  #   cd client && npm run dev
+
+volumes:
+  mongodb_data:
+    name: novastream-mongodb-data
+  server_uploads:
+    name: novastream-uploads
+  server_thumbnails:
+    name: novastream-thumbnails

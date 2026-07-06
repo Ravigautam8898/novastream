@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+cli/node_modules/
+
+# Build output
+client/dist/
+
+# Environment
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+
+# Personal notes
+nova errors observed
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Runtime
+.pm2/
+*.pid
+*.seed
+
+# Misc
+*.tgz
+*.zip
+

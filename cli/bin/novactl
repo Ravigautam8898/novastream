@@ -1,0 +1,213 @@
+#!/usr/bin/env node
+
+// ─── NovaStream Server Management CLI ─────────────────────
+//  novactl — Manage your NovaStream streaming server
+//
+//  Usage:
+//    novactl <command> [options]
+//
+//  Commands:
+//    start          Start the server
+//    stop           Stop the server
+//    restart        Restart the server
+//    status         Show server status
+//    uptime         Show uptime & resources
+//    logs           View server logs
+//    health         Full health check
+//    user add       Create a new user
+//    user list      List all users
+//    user delete    Delete a user
+//    user pass      Change user password
+//    ip block       Block an IP address
+//    ip unblock     Unblock an IP address
+//    ip list        List blocked IPs
+//    config show    Display configuration
+//    config --path  Show config file path
+//    telegram setup Configure Telegram bot (Phase 7)
+//    telegram status Check bot connection (Phase 7)
+//    telegram test  Send test message (Phase 7)
+//    version        Show version
+//    help           Show this help
+// ──────────────────────────────────────────────────────────
+
+const { Command } = require('commander');
+const pkg = require('../package.json');
+
+const program = new Command();
+
+program
+  .name('novactl')
+  .description('NovaStream Server Management CLI')
+  .version(pkg.version)
+  .addHelpText('after', `
+Environment:
+  .env file at project root with MONGODB_URI, PORT, etc.
+
+Examples:
+  novactl health                    Check everything
+  novactl user add --random         Create user with random credentials
+  novactl user add                  Interactive user creation
+  novactl user list                 Show all users
+  novactl ip block 192.168.1.100    Block an IP
+  novactl logs --lines=100          Show last 100 log lines
+
+Documentation:
+  docs/plans/SERVER_PLAN.md         Full server architecture plan
+  `);
+
+// ── Server Commands ──
+const serverCommands = require('../commands/server.commands');
+
+program
+  .command('start')
+  .description('Start the NovaStream server with PM2')
+  .action(serverCommands.start);
+
+program
+  .command('stop')
+  .description('Stop the NovaStream server')
+  .action(serverCommands.stop);
+
+program
+  .command('restart')
+  .description('Restart the NovaStream server')
+  .action(serverCommands.restart);
+
+program
+  .command('status')
+  .description('Show server process status')
+  .action(serverCommands.status);
+
+program
+  .command('uptime')
+  .description('Show server uptime and resource usage')
+  .action(serverCommands.uptime);
+
+program
+  .command('logs')
+  .description('View server logs')
+  .option('-n, --lines <number>', 'Number of log lines to show', '50')
+  .action((options) => serverCommands.logs(options));
+
+program
+  .command('health')
+  .description('Run full system health check (PM2, MongoDB, HTTP, Disk)')
+  .action(serverCommands.health);
+
+// ── User Commands ──
+const userCommands = require('../commands/user.commands');
+
+const user = program
+  .command('user')
+  .description('Manage server users');
+
+user
+  .command('add')
+  .description('Add a new user')
+  .option('-r, --random', 'Generate random username and password')
+  .option('-u, --username <username>', 'Specify username (password will be auto-generated)')
+  .option('-a, --admin', 'Create user with admin role')
+  .action((options) => userCommands.add(options));
+
+user
+  .command('list')
+  .description('List all registered users')
+  .action(userCommands.list);
+
+user
+  .command('delete <username>')
+  .description('Delete a user by username')
+  .action((username) => userCommands.delete(username));
+
+user
+  .command('pass <username>')
+  .description('Change a user\'s password')
+  .action((username) => userCommands.pass(username));
+
+// ── IP Commands ──
+const ipCommands = require('../commands/ip.commands');
+
+const ip = program
+  .command('ip')
+  .description('Manage blocked IP addresses');
+
+ip
+  .command('block <ip>')
+  .description('Block an IP address')
+  .option('-r, --reason <reason>', 'Reason for blocking', 'manual')
+  .action((ipAddr, options) => ipCommands.block(ipAddr, options));
+
+ip
+  .command('unblock <ip>')
+  .description('Unblock an IP address')
+  .action((ipAddr) => ipCommands.unblock(ipAddr));
+
+ip
+  .command('list')
+  .description('List all blocked IP addresses')
+  .action(ipCommands.list);
+
+// ── Config Commands ──
+const configCommands = require('../commands/config.commands');
+
+program
+  .command('config')
+  .description('Show server configuration')
+  .option('-p, --path', 'Show only the config file path')
+  .action((options) => configCommands.show(options));
+
+// ── Governance Command ──
+program
+  .command('sync-check')
+  .description('Run project governance sync check (validate all files are consistent)')
+  .option('-v, --verbose', 'Show detailed output')
+  .action((options) => {
+    process.env.VERBOSE = options.verbose ? '1' : '';
+    require('../commands/sync.command');
+  });
+
+// ── External Content Commands ──
+const externalCommands = require('../commands/external.commands');
+
+const external = program
+  .command('external')
+  .description('Manage external content source sync');
+
+external
+  .command('sync')
+  .description('Sync content catalog from external source')
+  .option('--dry-run', 'Preview changes without writing to DB')
+  .option('--verbose', 'Show detailed per-item logs')
+  .action((options) => externalCommands.sync(options));
+
+external
+  .command('status')
+  .description('Show external content sync status')
+  .action(externalCommands.status);
+
+// ── Telegram Commands ──
+const telegramCommands = require('../commands/telegram.commands');
+
+const telegram = program
+  .command('telegram')
+  .description('Telegram bot management (Phase 7)');
+
+telegram
+  .command('setup')
+  .description('Configure Telegram bot integration')
+  .action(telegramCommands.setup);
+
+telegram
+  .command('status')
+  .description('Check Telegram bot connection status')
+  .action(telegramCommands.status);
+
+telegram
+  .command('test')
+  .description('Send a test message via Telegram')
+  .action(telegramCommands.test);
+
+// ── Error on unknown command ──
+program.showHelpAfterError(true);
+
+program.parse(process.argv);
