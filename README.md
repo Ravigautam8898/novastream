@@ -30,9 +30,8 @@ cd novastream
 # 2. (Optional) Use the right Node version
 nvm use            # reads .nvmrc → Node 20
 
-# 3. Run the install script
-chmod +x install.sh
-./install.sh
+# 3. Install all dependencies (root + server + client + CLI)
+npm install
 
 # 4. Edit the environment file
 nano .env          # Set MONGODB_URI (required)
@@ -48,8 +47,8 @@ npm run dev        # Server :5000 + Client :5173
 git clone <repo-url> novastream
 cd novastream
 
-# 2. Run the install script
-.\install.ps1
+# 2. Install all dependencies (root + server + client + CLI)
+npm install
 
 # 3. Edit the environment file
 notepad .env       # Set MONGODB_URI (required)
@@ -60,16 +59,18 @@ npm run dev        # Server :5000 + Client :5173
 
 ---
 
+> **💡 Automatic environment setup:** `install.sh` (Linux/macOS) and `install.ps1` (Windows) are also available as optional helpers that auto-generate `.env` with secure defaults.
+
 ## ⚡ One-Line Setup
 
 If you already have Node.js 20+ and MongoDB:
 
 ```bash
 # Linux / macOS
-git clone <repo-url> && cd novastream && ./install.sh && npm run dev
+git clone <repo-url> && cd novastream && npm install && npm run dev
 
 # Windows (PowerShell)
-git clone <repo-url>; cd novastream; .\install.ps1; npm run dev
+git clone <repo-url>; cd novastream; npm install; npm run dev
 ```
 
 ---

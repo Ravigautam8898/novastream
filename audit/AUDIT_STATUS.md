@@ -1,7 +1,7 @@
 # NovaStream Audit — Status Dashboard
 
 > **Purpose:** Live dashboard tracking the progress of all 10 audit phases.
-> **Last Updated:** July 6, 2026
+> **Last Updated:** July 7, 2026
 > **Phase 8 Status:** 🔒 FROZEN ✅ — All 3 batches certified
 
 ---
@@ -105,6 +105,14 @@ NovaStream currently has **three independent governance tracks** that run in par
 | **Phase** | Phase 9 — Scalability 🟡 **Active** |
 | **Finding** | Batch A1 (SC-014 + SC-015) — Certified ✅. 2/17 findings resolved. |
 | **Status** | Batch A1 certified. Next: Batch A2 — SC-001 (lockout state) + SC-002 (stream caches) + SC-003 (cache invalidation). |
+
+---
+
+## Infrastructure Fixes
+
+| Date | Fix | Files | Status |
+|------|-----|-------|--------|
+| 2026-07-07 | Developer Setup Baseline — Added `postinstall` to auto-install server/client/CLI deps on `npm install` | `package.json`, `README.md` | ✅ Deployed |
 
 ---
 
