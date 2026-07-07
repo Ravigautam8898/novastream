@@ -236,6 +236,7 @@ All 12 decisions (C-001 through C-011, C-013) are frozen as the baseline. Future
 | git rm --cached yupflix.provider.js (local file preserved) | ✅ Done |
 | Create `example.provider.js` — full provider template | ✅ Done — all patterns documented |
 | Create `README.md` — integration guide with provider types, stream policies, flow | ✅ Done |
+| Template `isTemplate: true` — skipped at registration | ✅ ProviderManager skips templates before validation |
 | sourceId/sourceSite marked deprecated but NOT removed | ✅ Legacy fallback active |
 | ProviderManager prefers providers[] first | ✅ Legacy fallback only for old installs |
 | Runtime validation (syntax, tests) | ✅ All pass |

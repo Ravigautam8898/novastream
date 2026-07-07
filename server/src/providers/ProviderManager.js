@@ -114,6 +114,12 @@ class ProviderManager {
   static async registerProvider(ProviderClass, source = 'manual') {
     const meta = ProviderClass.metadata;
 
+    // Skip template providers — they are for copying only, not runtime registration
+    if (meta?.isTemplate === true) {
+      logger.info({ providerId: meta.id, file: source }, 'ProviderManager: template provider skipped (isTemplate: true)');
+      return false;
+    }
+
     // Validate metadata
     const validation = BaseProvider.validateMetadata(ProviderClass);
     if (!validation.valid) {

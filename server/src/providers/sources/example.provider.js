@@ -20,6 +20,7 @@ class ExampleProvider extends BaseProvider {
     author: 'Your Name',
     providerType: 'API',     // 'API' | 'LIGHT_SCRAPER' | 'BROWSER_SCRAPER'
     priority: 50,            // Lower = tried first (API providers: 10-50, Scrapers: 60-100)
+    isTemplate: true,        // Prevents registration — templates are for copying only
     enabled: true,
     execution: {
       // Mode must match providerType:
