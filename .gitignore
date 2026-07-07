@@ -56,6 +56,13 @@ NUL.*
 # ── Personal Notes ──
 nova errors observed
 
+# ── Provider Privacy (C3c) ──
+# Provider implementations are private. The framework is public.
+# Only the example template and README are tracked.
+server/src/providers/sources/*.provider.js
+!server/src/providers/sources/example.provider.js
+!server/src/providers/sources/README.md
+
 # ── Misc ──
 *.tgz
 *.zip

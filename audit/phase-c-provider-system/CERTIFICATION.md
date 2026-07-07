@@ -228,6 +228,18 @@ All 12 decisions (C-001 through C-011, C-013) are frozen as the baseline. Future
 | Legacy fallback logging | ✅ Debug log when sourceId/sourceSite used instead of providers[] |
 | Runtime validation (series, movie, cache, refresh) | ✅ All tests pass |
 
+### C3c — Privacy Hardening + Cleanup ✅ Complete (2026-07-07)
+
+| Task | Status |
+|------|--------|
+| .gitignore — ignore *.provider.js, allow example.provider.js + README.md | ✅ Done |
+| git rm --cached yupflix.provider.js (local file preserved) | ✅ Done |
+| Create `example.provider.js` — full provider template | ✅ Done — all patterns documented |
+| Create `README.md` — integration guide with provider types, stream policies, flow | ✅ Done |
+| sourceId/sourceSite marked deprecated but NOT removed | ✅ Legacy fallback active |
+| ProviderManager prefers providers[] first | ✅ Legacy fallback only for old installs |
+| Runtime validation (syntax, tests) | ✅ All pass |
+
 ### Next Phase: C4 — CastleTV / Cleanup
 - Add CastleTV provider plugin
 - Wire frontend expired stream recovery hooks
