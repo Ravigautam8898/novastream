@@ -1,11 +1,12 @@
 # Phase C — Dynamic Provider Plugin System — Certification
 
 > **Phase:** C — Dynamic Provider Plugin System
-> **Status:** 🔒 C1+C2 FROZEN — C3 Active
-> **Implementation:** C1 + C2 Complete
+> **Status:** 🔒 C1+C2+C3 FROZEN — C4 Active
+> **Implementation:** C1 + C2 + C3 Complete
 > **Phase C1:** Completed July 6, 2026
 > **Phase C2:** Completed July 7, 2026
-> **Next Phase:** C3 — YupFlix Provider Migration
+> **Phase C3:** Completed July 7, 2026
+> **Next Phase:** C4 — CastleTV Integration
 > **Last Updated:** July 7, 2026
 
 ---
@@ -20,13 +21,14 @@
 | **Closed** | 0 |
 | **Rejected** | 0 |
 | **Won't Fix** | 0 |
-| **Status** | 🟢 C1 🔒 FROZEN · C2 🔒 FROZEN · C3a ✅ Partial |
+| **Status** | 🟢 C1 🔒 FROZEN · C2 🔒 FROZEN · C3 🔒 FROZEN |
 | **C1 Start Date** | 2026-07-06 |
 | **C1 Freeze Date** | 2026-07-06 |
 | **C2 Implementation Date** | 2026-07-07 |
 | **C2 Freeze Date** | 2026-07-07 |
 | **Decisions Frozen** | C-001 through C-013 |
 | **C2 Implementation** | ✅ CERTIFIED 🔒 FROZEN |
+| **C3 Implementation** | ✅ CERTIFIED 🔒 FROZEN |
 
 ---
 
@@ -241,7 +243,20 @@ All 12 decisions (C-001 through C-011, C-013) are frozen as the baseline. Future
 | ProviderManager prefers providers[] first | ✅ Legacy fallback only for old installs |
 | Runtime validation (syntax, tests) | ✅ All pass |
 
-### Next Phase: C4 — CastleTV / Cleanup
-- Add CastleTV provider plugin
+### C3 Certification ✅
+
+| Validation | Result |
+|------------|--------|
+| YupFlix provider registration | ✅ Provider discovered and registered at startup |
+| Playback (movie + series) | ✅ Both resolve stream URLs correctly |
+| Cache HIT | ✅ Second call returns source:'cache' |
+| Refresh | ✅ Cache bypass works correctly |
+| providers[] migration | ✅ 612 documents migrated, 0 duplicates |
+| Provider privacy | ✅ *.provider.js gitignored, template skipped |
+| Template skip | ✅ isTemplate:true prevents registration |
+| All 52 tests | ✅ Pass, zero regressions |
+
+### Next Phase: C4 — CastleTV Integration
+- Create CastleTV provider plugin
 - Wire frontend expired stream recovery hooks
 - Remove tmdb- prefix navigation dependency

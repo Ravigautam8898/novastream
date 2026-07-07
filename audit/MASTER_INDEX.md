@@ -20,7 +20,7 @@
 | 08 | Production | Docker, CI/CD, monitoring, logging, deployment config | 🔒 FROZEN ✅ |
 | 09 | Scalability | Architecture, provider abstraction, horizontal scaling | 🟡 BATCH A1 CERTIFIED (SC-014+SC-015) |
 | 10 | Final Certification | End-to-end verification, security audit, readiness check | PENDING |
-| C | Dynamic Provider Plugin System | ContentRegistry, BaseProvider, ProviderManager, ProviderRegistry, ScraperQueue | 🔒 FROZEN (C1+C2) |
+| C | Dynamic Provider Plugin System | ContentRegistry, BaseProvider, ProviderManager, ProviderRegistry, ScraperQueue, YupFlix provider | 🔒 FROZEN (C1+C2+C3) |
 
 ---
 
@@ -32,8 +32,8 @@
 - `server/src/providers/extractors/` — Video host resolvers (empty until C5)
 - `server/src/models/Content.model.js` — Updated with providers[] array
 
-**Status:** 🔒 FROZEN (Phases C1 + C2) — Architecture + Framework complete, decisions C-001 through C-013 frozen
-**Next:** Phase C3 — YupFlix Provider Migration (create yupflix.provider.js, wire ProviderManager)
+**Status:** 🔒 FROZEN (Phases C1 + C2 + C3) — Architecture + Framework + YupFlix migration complete, decisions C-001 through C-013 frozen
+**Next:** Phase C4 — CastleTV Provider Integration
 
 ---
 
