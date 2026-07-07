@@ -131,7 +131,7 @@ class ProviderManager {
     }
 
     // Check for duplicate IDs
-    if (registeredProviders.some(p => p.provider.metadata.id === meta.id)) {
+    if (registeredProviders.some(p => p.provider.constructor.metadata.id === meta.id)) {
       logger.warn({ providerId: meta.id }, 'ProviderManager: provider already registered — skipping duplicate');
       return false;
     }
