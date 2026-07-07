@@ -281,11 +281,13 @@ class ProviderManager {
    *
    * Flow:
    *   1. Lookup content by slug
-   *   2. Check _streamCache (existing TTL-based cache)
-   *   3. If cache HIT with buffer → return cached URL
-   *   4. If cache MISS or EXPIRED → acquire distributed lock
-   *   5. Try providers in priority order
-   *   6. Cache result → release lock → return
+   *   2. Get provider mapping (providers[] first → legacy sourceId fallback)
+   *   3. Check _streamCache (existing TTL-based cache)
+   *   4. If cache HIT with buffer → return cached URL
+   *   5. If cache MISS or EXPIRED → acquire distributed lock
+   *   6. Find matching provider (match by id OR legacyIds)
+   *   7. Try providers in priority order: API → LIGHT_SCRAPER → BROWSER_SCRAPER
+   *   8. Cache result → release lock → return
    *
    * @param {Object} params
    * @param {string} params.slug - NovaStream content slug
@@ -293,7 +295,7 @@ class ProviderManager {
    * @param {string} [params.quality] - Requested quality
    * @param {number} [params.season] - Season number (series only)
    * @param {number} [params.episode] - Episode number (series only)
-   * @returns {Promise<{url: string, expiresAt: number, provider: string, cached: boolean}>}
+   * @returns {Promise<{url: string, expiresAt: number, provider: string, cached: boolean, allQualities?: Array}>}
    */
   static async resolve({ slug, contentType, quality, season, episode }) {
     // 1. Lookup content
@@ -312,6 +314,7 @@ class ProviderManager {
     const { providerName, providerContentId } = providerMapping;
 
     // 3. Build cache key (same format as ContentSourceService for cache compatibility)
+    //    Uses providerName (which is 'primary' for legacy content, matching existing cache keys)
     let cacheKey;
     if (contentType === 'movie') {
       cacheKey = `${providerName}:movie:${providerContentId}:${quality || '720p'}`;
@@ -362,12 +365,12 @@ class ProviderManager {
       const startTime = Date.now();
       let streamResult = null;
       let resolvedProvider = null;
+      let allQualities = null;
 
       // 6a. Try API providers first (DIRECT)
       const apiProviders = this.getOrderedProviders('API');
       for (const { provider, meta } of apiProviders) {
-        // Check if this provider has a mapping for this content
-        if (meta.id !== providerName) continue;
+        if (!this._matchesProvider(meta, providerName)) continue;
 
         try {
           const streams = await provider.getStreams(providerContentId, {
@@ -377,6 +380,7 @@ class ProviderManager {
           });
           if (streams && streams.length > 0) {
             streamResult = this._pickBestStream(streams, quality);
+            allQualities = streams.map(s => ({ quality: s.quality, url: s.url }));
             resolvedProvider = meta.id;
             await ProviderRegistry.recordSuccess(meta.id, Date.now() - startTime);
             break;
@@ -391,12 +395,13 @@ class ProviderManager {
       if (!streamResult) {
         const scraperProviders = this.getOrderedProviders('LIGHT_SCRAPER');
         for (const { provider, meta } of scraperProviders) {
-          if (meta.id !== providerName) continue;
+          if (!this._matchesProvider(meta, providerName)) continue;
 
           try {
             const streams = await ScraperQueue.submit(provider, 'getStreams', [providerContentId, { season, episode, quality }]);
             if (streams && streams.length > 0) {
               streamResult = this._pickBestStream(streams, quality);
+              allQualities = streams.map(s => ({ quality: s.quality, url: s.url }));
               resolvedProvider = meta.id;
               await ProviderRegistry.recordSuccess(meta.id, Date.now() - startTime);
               break;
@@ -412,12 +417,13 @@ class ProviderManager {
       if (!streamResult) {
         const browserProviders = this.getOrderedProviders('BROWSER_SCRAPER');
         for (const { provider, meta } of browserProviders) {
-          if (meta.id !== providerName) continue;
+          if (!this._matchesProvider(meta, providerName)) continue;
 
           try {
             const streams = await ScraperQueue.submit(provider, 'getStreams', [providerContentId, { season, episode, quality }]);
             if (streams && streams.length > 0) {
               streamResult = this._pickBestStream(streams, quality);
+              allQualities = streams.map(s => ({ quality: s.quality, url: s.url }));
               resolvedProvider = meta.id;
               await ProviderRegistry.recordSuccess(meta.id, Date.now() - startTime);
               break;
@@ -447,6 +453,7 @@ class ProviderManager {
       return {
         url: streamResult.url,
         expiresAt,
+        allQualities,
         provider: resolvedProvider,
         cached: false,
       };
@@ -547,7 +554,7 @@ class ProviderManager {
     }
   }
 
-  // ── Provider Mapping Helpers ──
+  // ── Provider Mapping & Matching Helpers ──
 
   /**
    * Get the provider mapping for a content item.
@@ -577,6 +584,24 @@ class ProviderManager {
     }
 
     return null;
+  }
+
+  /**
+   * Check if a provider's metadata matches a requested provider name.
+   * Checks both the provider's id AND any legacy aliases (legacyIds).
+   *
+   * C3a: This enables legacy sourceSite='primary' to resolve to the 'yupflix'
+   * provider without database migration. The provider declares legacyIds: ['primary']
+   * in its static metadata, and we match against it here.
+   *
+   * @param {Object} meta - Provider's static metadata
+   * @param {string} providerName - The name to match (from content mapping)
+   * @returns {boolean}
+   */
+  static _matchesProvider(meta, providerName) {
+    if (meta.id === providerName) return true;
+    if (meta.legacyIds && Array.isArray(meta.legacyIds) && meta.legacyIds.includes(providerName)) return true;
+    return false;
   }
 
   // ── Stream Result Helpers ──

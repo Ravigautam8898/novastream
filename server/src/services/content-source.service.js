@@ -17,6 +17,7 @@ const Content = require('../models/Content.model');
 const logger = require('../config/logger');
 const ApiError = require('../utils/ApiError');
 const config = require('../config/env');
+const ProviderManager = require('../providers/ProviderManager');
 
 // ── Source Configurations (ST-009) ──
 // baseUrl, headers, and timeout are now configured via environment variables.
@@ -305,7 +306,9 @@ async function fetchFromSource(sourceKey, path) {
 class ContentSourceService {
   /**
    * Get a streaming URL for a content item by its slug.
-   * Uses cached URL if available, otherwise fetches from external source.
+   *
+   * C3a: Delegates to ProviderManager.resolve() via compatibility layer.
+   * Responses maintain backward-compatible format for existing frontend callers.
    *
    * @param {Object} params
    * @param {string} params.slug - NovaStream content slug
@@ -313,68 +316,26 @@ class ContentSourceService {
    * @param {string} [params.quality] - Requested quality ('480p', '720p', '1080p')
    * @param {number} [params.season] - Season number (series only)
    * @param {number} [params.episode] - Episode number (series only)
-   * @returns {Promise<{url: string, expiresAt: number, qualities: Array}>}
+   * @returns {Promise<{url: string, expiresAt: number, qualities: Array|null, source: string}>}
    */
   static async getStreamUrl({ slug, contentType, quality, season, episode }) {
-    // 1. Lookup content by slug
-    const content = await Content.findOne({ slug, isActive: true }).lean();
-    if (!content) {
-      throw ApiError.notFound(`Content '${slug}' not found`);
-    }
-
-    // 2. Check if content has an external source mapping
-    const sourceId = content.sourceId;
-    const sourceSite = content.sourceSite || 'primary';
-
-    if (!sourceId) {
-      throw ApiError.notFound(`Content '${slug}' has no external source mapping. Run seed-source-mapping script first.`);
-    }
-
-    // 3. Build cache key
-    let cacheKey;
-    if (contentType === 'movie') {
-      cacheKey = `${sourceSite}:movie:${sourceId}:${quality || '720p'}`;
-    } else {
-      const s = season || 1;
-      const e = episode || 1;
-      cacheKey = `${sourceSite}:series:${sourceId}:s${s}:e${e}:${quality || '720p'}`;
-    }
-
-    // 4. Check cache (SC-002: MongoDB-backed, cross-worker safe)
-    const cached = await streamCache.get(cacheKey);
-    if (cached) {
-      logger.debug({ cacheKey }, 'Stream cache HIT');
-      return {
-        url: cached.url,
-        expiresAt: cached.expiresAt?.getTime ? Math.floor(cached.expiresAt.getTime() / 1000) : cached.expiresAt,
-        qualities: null, // Qualities available in a separate call
-        source: 'cache',
-      };
-    }
-
-    // 5. Check if another request is already fetching this (per-process dedup)
-    const pending = pendingFetches.get(cacheKey);
-    if (pending) {
-      logger.debug({ cacheKey }, 'Stream cache MISS — waiting for in-flight request');
-      return await pending;
-    }
-
-    // 6. Fetch from external source
-    logger.debug({ cacheKey, sourceSite }, 'Stream cache MISS — fetching from external source');
-    const fetchPromise = this._fetchAndCache({ content, sourceId, sourceSite, contentType, quality, season, episode, cacheKey });
-
-    // Register the pending promise for dedup
-    pendingFetches.set(cacheKey, fetchPromise);
-
-    let result;
     try {
-      result = await fetchPromise;
-    } finally {
-      // Clean up pending when done (runs on both resolve and reject)
-      pendingFetches.delete(cacheKey);
+      const result = await ProviderManager.resolve({ slug, contentType, quality, season, episode });
+      return {
+        url: result.url,
+        expiresAt: result.expiresAt,
+        qualities: result.allQualities || null,
+        source: result.cached ? 'cache' : 'external',
+      };
+    } catch (err) {
+      // C3a: Re-throw with legacy error message so the route handler's
+      // soft-error check (err.message.includes('no external source mapping'))
+      // continues to work. The route returns { url: null } instead of 404.
+      if (err instanceof ApiError && err.statusCode === 404 && err.message.includes('no provider mapping')) {
+        throw ApiError.notFound(`Content '${slug}' has no external source mapping. Run seed-source-mapping script first.`);
+      }
+      throw err;
     }
-
-    return result;
   }
 
   /**
@@ -472,76 +433,45 @@ class ContentSourceService {
   /**
    * Force refresh a streaming URL (bypass cache).
    * Used by the frontend expiry timer during active playback.
+   *
+   * C3a: Delegates to ProviderManager.refresh() via compatibility layer.
    */
   static async refreshStreamUrl({ slug, contentType, quality, season, episode }) {
-    // Build cache key and delete it
-    const content = await Content.findOne({ slug, isActive: true }).lean();
-    if (!content || !content.sourceId) {
-      throw ApiError.notFound(`Content '${slug}' not found or has no source mapping`);
-    }
-
-    const sourceSite = content.sourceSite || 'primary';
-    let cacheKey;
-    if (contentType === 'movie') {
-      cacheKey = `${sourceSite}:movie:${content.sourceId}:${quality || '720p'}`;
-    } else {
-      const s = season || 1;
-      const e = episode || 1;
-      cacheKey = `${sourceSite}:series:${content.sourceId}:s${s}:e${e}:${quality || '720p'}`;
-    }
-
-    await streamCache.delete(cacheKey);
-    return await this.getStreamUrl({ slug, contentType, quality, season, episode });
+    const result = await ProviderManager.refresh({ slug, contentType, quality, season, episode });
+    return {
+      url: result.url,
+      expiresAt: result.expiresAt,
+      qualities: result.allQualities || null,
+      source: 'external',
+    };
   }
 
   /**
    * Get available qualities for a content item (without fetching a stream URL).
+   *
+   * C3a: Delegates to ProviderManager.resolve() via compatibility layer.
+   * Catches "no stream" errors gracefully to return availability info.
    */
   static async getStreamInfo({ slug, contentType, season, episode }) {
-    const content = await Content.findOne({ slug, isActive: true }).lean();
-    if (!content || !content.sourceId) {
-      return { hasStreams: false, qualities: [], sourceSite: null };
-    }
-
-    const sourceSite = content.sourceSite || 'primary';
-    const source = SOURCES[sourceSite];
-    if (!source) {
-      return { hasStreams: false, qualities: [], sourceSite };
-    }
-
-    const parser = source.parsers;
-
     try {
-      if (contentType === 'movie') {
-        const data = await fetchFromSource(sourceSite, `/api/movies/public/${content.sourceId}`);
-        if (!data) return { hasStreams: false, qualities: [], sourceSite };
+      const result = await ProviderManager.resolve({
+        slug,
+        contentType,
+        season,
+        episode,
+      });
 
-        const links = parser.parseMovieResponse(data);
-        return {
-          hasStreams: links.length > 0,
-          qualities: links.map(l => ({ quality: l.quality })),
-          sourceSite,
-        };
-      } else {
-        const data = await fetchFromSource(sourceSite, `/api/series/public/${content.sourceId}`);
-        if (!data) return { hasStreams: false, qualities: [], sourceSite };
-
-        const episodes = parser.parseSeriesResponse(data);
-        const sNum = season || 1;
-        const eNum = episode || 1;
-        const matched = episodes.find(ep => ep.seasonNumber === sNum && ep.episodeNumber === eNum);
-
-        if (!matched) return { hasStreams: false, qualities: [], sourceSite };
-
-        return {
-          hasStreams: matched.streamingLinks.length > 0,
-          qualities: matched.streamingLinks.map(l => ({ quality: l.quality })),
-          sourceSite,
-        };
-      }
+      return {
+        hasStreams: !!(result.allQualities && result.allQualities.length > 0),
+        qualities: result.allQualities ? result.allQualities.map(q => ({ quality: q.quality })) : [],
+        sourceSite: result.provider,
+      };
     } catch (err) {
+      if (err instanceof ApiError && (err.statusCode === 404 || err.message.includes('No stream') || err.message.includes('no provider'))) {
+        return { hasStreams: false, qualities: [], sourceSite: null };
+      }
       logger.warn({ err, slug }, 'Failed to fetch stream info from source');
-      return { hasStreams: false, qualities: [], sourceSite, error: err.message };
+      return { hasStreams: false, qualities: [], sourceSite: null, error: err.message };
     }
   }
 

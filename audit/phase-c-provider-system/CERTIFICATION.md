@@ -1,11 +1,12 @@
 # Phase C — Dynamic Provider Plugin System — Certification
 
 > **Phase:** C — Dynamic Provider Plugin System
-> **Status:** 🔒 FROZEN — Architecture Complete
-> **Implementation:** NOT STARTED
+> **Status:** 🔒 C1+C2 FROZEN — C3 Active
+> **Implementation:** C1 + C2 Complete
 > **Phase C1:** Completed July 6, 2026
-> **Next Phase:** C2 — Provider Framework Implementation
-> **Last Updated:** July 6, 2026
+> **Phase C2:** Completed July 7, 2026
+> **Next Phase:** C3 — YupFlix Provider Migration
+> **Last Updated:** July 7, 2026
 
 ---
 
@@ -19,7 +20,7 @@
 | **Closed** | 0 |
 | **Rejected** | 0 |
 | **Won't Fix** | 0 |
-| **Status** | 🟢 C1 🔒 FROZEN · C2 🔒 FROZEN · C3 ❌ Not Started |
+| **Status** | 🟢 C1 🔒 FROZEN · C2 🔒 FROZEN · C3a ✅ Partial |
 | **C1 Start Date** | 2026-07-06 |
 | **C1 Freeze Date** | 2026-07-06 |
 | **C2 Implementation Date** | 2026-07-07 |
@@ -202,8 +203,20 @@ All 12 decisions (C-001 through C-011, C-013) are frozen as the baseline. Future
 - `AUDIT_STATUS.md` — Track C status added to dashboard
 - `CHATGPT_CONTEXT.md` — Track C section added
 
-### Next Phase: C3 — YupFlix Migration
-- Create `server/src/providers/sources/yupflix.provider.js`
-- Update `POST /api/external/play` to use ProviderManager
-- Wire frontend expired stream recovery
+### C3a — YupFlix Migration ✅ Complete (2026-07-07)
+
+| Task | Status |
+|------|--------|
+| Create `yupflix.provider.js` extending BaseProvider with legacyIds: ['primary'] | ✅ Done |
+| Move YupFlix API logic from ContentSourceService (fetch, parse, validate, retry) | ✅ Done — moved verbatim |
+| ContentSourceService.getStreamUrl/refreshStreamUrl/getStreamInfo → delegate to ProviderManager | ✅ Done — backward-compatible transforms |
+| ProviderManager legacyIds alias: sourceSite='primary' → yupflix provider | ✅ Done — `_matchesProvider()` checks `meta.legacyIds` |
+| Cache key compatibility preserved (primary:type:id:quality format) | ✅ Done — same key format, existing cache intact |
+| Soft-error message compatibility for route handler | ✅ Done — getStreamUrl catches and re-throws with legacy message |
+| All 52 tests pass | ✅ 52/52 pass, zero regressions |
+| Syntax checks on all 3 files | ✅ All pass |
+
+### Next Phase: C4 — CastleTV / Cleanup
+- Add CastleTV provider plugin
+- Wire frontend expired stream recovery hooks
 - Remove tmdb- prefix navigation dependency
