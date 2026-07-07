@@ -9,6 +9,7 @@ const Content = require('../models/Content.model');
 const Season = require('../models/Season.model');
 const Episode = require('../models/Episode.model');
 const MetadataManager = require('../metadata/MetadataManager');
+const ContentRegistry = require('../providers/ContentRegistry');
 const TMDbService = require('./tmdb.service');
 const ContentSourceService = require('./content-source.service');
 
@@ -605,59 +606,95 @@ class ContentService {
     return result;
   }
 
-  // ── TMDB Detail Lookup (Navigation Bridge) ──
+  // ── TMDB Detail Lookup (Navigation Bridge — C5b) ──
 
   /**
    * Get content details by TMDB ID.
-   * First checks MongoDB (by tmdbId field), then falls back to live TMDB API.
-   * This enables browsing TMDB-sourced items that haven't been seeded into
-   * the Content collection yet (e.g. trending items from TMDB's live feed).
+   * First checks MongoDB (by tmdbId field), then fetches live from MetadataManager
+   * and registers the content in ContentRegistry to create a permanent Nova slug.
+   *
+   * C5b: Every detail page fetch creates a Nova Content document if one doesn't
+   * exist. This removes the dependency on synthetic `_id: tmdb-{id}` — every
+   * returned item has a real Mongo _id and Nova slug.
    *
    * Does NOT require: sourceId, sourceSite, or stream availability.
    * Metadata-only — playback resolving happens separately at PLAY click.
    *
    * @param {number} tmdbId - TMDB content ID
    * @param {string} contentType - 'movie' or 'series'
-   * @returns {Promise<Object>} Normalized content object
+   * @returns {Promise<Object>} Content document (real MongoDB document, not synthetic)
    */
   static async getByTmdbId(tmdbId, contentType) {
-    // 1. Try MongoDB first (content may have been seeded)
+    // 1. Try MongoDB first (content may have been seeded or registered by C5b)
     const existing = await Content.findOne({ tmdbId, contentType, isActive: true }).lean();
     if (existing) {
-      logger.debug({ tmdbId, contentType }, 'TMDB detail — found in DB');
+      logger.debug({ tmdbId, contentType, slug: existing.slug }, 'TMDB detail — found in DB');
       return existing;
-    }      // 2. Fetch from MetadataManager (uses TMDB provider by default)
+    }
+
+    // 2. Fetch from MetadataManager (uses TMDB provider by default)
     logger.debug({ tmdbId, contentType }, 'TMDB detail — fetching live via MetadataManager');
 
     try {
       const data = await MetadataManager.getDetails(String(tmdbId), contentType);
 
-      // Build a normalized detail object that matches the frontend expectations
-      const normalized = {
-        ...data,
-        _id: `tmdb-${tmdbId}`,       // Synthetic _id for frontend keying
-        slug: null,                    // No slug — not in DB
-        sourceId: null,                // No streaming source
-        sourceSite: null,
-        streams: [],
-        isActive: true,
-        isFeatured: false,
-        similarContent: [],           // Empty until seeded
-        categories: [],               // Empty until seeded
-        languages: [],                // Empty until seeded
-        // Override contentType if TMDB returned it correctly
-        contentType,
-        // For series, extract first season
-        seasons: data.seasons || [],
-        numberOfSeasons: data.numberOfSeasons || data.seasons?.length || 0,
-        numberOfEpisodes: data.numberOfEpisodes || data.seasons?.reduce((sum, s) => sum + (s.episodes?.length || 0), 0) || 0,
+      // 3. Register in ContentRegistry — creates Nova slug + permanent document
+      //    This is the OTT detail lifecycle: browse = no registration,
+      //    detail open = register.
+      const identity = {
+        tmdbId,
+        metadataSource: { name: 'tmdb', id: String(tmdbId) },
       };
 
-      // Remove field that may be confusing
-      delete normalized.createdAt;
-      delete normalized.updatedAt;
+      const content = await ContentRegistry.registerOrUpdate({
+        identity,
+        title: data.title,
+        contentType,
+        metadata: {
+          originalTitle: data.originalTitle,
+          overview: data.overview,
+          tagline: data.tagline,
+          posterPath: data.posterPath,
+          backdropPath: data.backdropPath,
+          releaseDate: data.releaseDate,
+          firstAirDate: data.firstAirDate,
+          genres: data.genres,
+          voteAverage: data.voteAverage,
+          voteCount: data.voteCount,
+          popularity: data.popularity,
+          runtime: data.runtime,
+          contentRating: data.contentRating,
+          cast: data.cast,
+          videos: data.videos,
+          productionCompanies: data.productionCompanies,
+          homepage: data.homepage,
+        },
+      });
 
-      return normalized;
+      logger.info({ tmdbId, contentType, slug: content.slug },
+        'C5b: Content registered via detail page — Nova slug created');
+
+      // 4. Return the real Content document with season/episode data preserved
+      //    ContentRegistry.registerOrUpdate() stores identity + basic metadata
+      //    but doesn't create Season/Episode documents yet.
+      //    For series, preserve the TMDB season data from the detail fetch
+      //    so the frontend detail page still shows episodes.
+      const result = {
+        ...content,
+        seasons: content.seasons || data.seasons || [],
+        numberOfSeasons: content.numberOfSeasons
+          || data.numberOfSeasons
+          || (data.seasons ? data.seasons.length : 0)
+          || 0,
+        numberOfEpisodes: content.numberOfEpisodes
+          || data.numberOfEpisodes
+          || (data.seasons
+            ? data.seasons.reduce((sum, s) => sum + (s.episodes?.length || s.episodeCount || 0), 0)
+            : 0)
+          || 0,
+      };
+
+      return result;
     } catch (err) {
       logger.error({ tmdbErr: err?.message || err, tmdbId, contentType }, 'Metadata detail fetch failed');
       throw ApiError.notFound(`Content with TMDB ID ${tmdbId} not found. It may not be available.`);

@@ -216,12 +216,24 @@ class ContentRegistry {
 
   /**
    * Register or update content. If content already exists by identity,
-   * this will merge new metadata sources and update metadata fields.
+   * this will merge new metadata sources and safely update metadata fields.
    * If it doesn't exist, creates a new entry.
    *
-   * C5a: This enables content to accumulate metadata sources over time
-   * without duplication. For example, content discovered via Trakt can
-   * later be enriched with TMDB metadata without creating a duplicate.
+   * C5b: Safe merge rules:
+   *   - Rating, popularity → always updated (keep fresh)
+   *   - Images (posterPath, backdropPath) → only if existing is missing
+   *   - Descriptions (overview, tagline) → only if existing is missing
+   *   - Cast, videos → only if existing is empty
+   *   - metadataSources → merged (never duplicate)
+   *
+   * NEVER overwritten:
+   *   - title (without identity validation)
+   *   - contentType
+   *   - provider mappings (providers[])
+   *   - sourceId / sourceSite (legacy)
+   *   - isActive, isFeatured, isPremium
+   *   - engagement data (viewCount, likeCount)
+   *   - categories, tags, languages (manual curation)
    *
    * @param {Object} params - Same as register()
    * @returns {Promise<Object>} The existing or created Content document
@@ -237,12 +249,13 @@ class ContentRegistry {
     });
 
     if (existing) {
-      // Content exists — merge new metadata source if provided
+      // ── Content exists — merge safe metadata ──
+
+      // 1a. Merge new metadata source
       if (identity.metadataSource && identity.metadataSource.name) {
         const sourceName = identity.metadataSource.name;
         const existingSources = existing.metadataSources || {};
 
-        // Only update if this source isn't already recorded
         if (!existingSources[sourceName] || existingSources[sourceName].id !== String(identity.metadataSource.id)) {
           await Content.findByIdAndUpdate(existing._id, {
             $set: {
@@ -256,7 +269,7 @@ class ContentRegistry {
             'ContentRegistry: metadata source merged into existing content');
         }
 
-        // If the content has tmdbId metadataSource but no top-level tmdbId, sync it
+        // Sync top-level tmdbId if metadata source is tmdb and content doesn't have it
         if (sourceName === 'tmdb' && !existing.tmdbId) {
           await Content.findByIdAndUpdate(existing._id, {
             $set: { tmdbId: parseInt(identity.metadataSource.id) || identity.metadataSource.id },
@@ -264,14 +277,75 @@ class ContentRegistry {
         }
       }
 
-      // Update popularity if provided (keep content fresh in browse results)
+      // 1b. Build updates object with safe merge rules
+      const updates = {};
+
+      // Always update: popularity + ratings (keep content fresh in browse results)
+      if (metadata.voteAverage !== undefined && metadata.voteAverage !== existing.voteAverage) {
+        updates.voteAverage = metadata.voteAverage;
+      }
+      if (metadata.voteCount !== undefined && metadata.voteCount !== existing.voteCount) {
+        updates.voteCount = metadata.voteCount;
+      }
       if (metadata.popularity && metadata.popularity !== existing.popularity) {
-        await Content.findByIdAndUpdate(existing._id, {
-          $set: { popularity: metadata.popularity },
-        });
+        updates.popularity = metadata.popularity;
       }
 
-      return existing;
+      // Update only if missing: images
+      if (metadata.posterPath && !existing.posterPath) {
+        updates.posterPath = metadata.posterPath;
+      }
+      if (metadata.backdropPath && !existing.backdropPath) {
+        updates.backdropPath = metadata.backdropPath;
+      }
+
+      // Update only if missing: descriptions
+      if (metadata.overview && !existing.overview) {
+        updates.overview = metadata.overview;
+      }
+      if (metadata.tagline && !existing.tagline) {
+        updates.tagline = metadata.tagline;
+      }
+
+      // Update only if missing: original title
+      if (metadata.originalTitle && !existing.originalTitle) {
+        updates.originalTitle = metadata.originalTitle;
+      }
+
+      // Update only if missing: runtime, content rating
+      if (metadata.runtime && !existing.runtime) {
+        updates.runtime = metadata.runtime;
+      }
+      if (metadata.contentRating && !existing.contentRating) {
+        updates.contentRating = metadata.contentRating;
+      }
+
+      // Update only if empty: cast, videos, production companies
+      if (metadata.cast && Array.isArray(metadata.cast) && metadata.cast.length > 0 &&
+          (!existing.cast || existing.cast.length === 0)) {
+        updates.cast = metadata.cast;
+      }
+      if (metadata.videos && Array.isArray(metadata.videos) && metadata.videos.length > 0 &&
+          (!existing.videos || existing.videos.length === 0)) {
+        updates.videos = metadata.videos;
+      }
+      if (metadata.productionCompanies && Array.isArray(metadata.productionCompanies) &&
+          metadata.productionCompanies.length > 0 &&
+          (!existing.productionCompanies || existing.productionCompanies.length === 0)) {
+        updates.productionCompanies = metadata.productionCompanies;
+      }
+
+      // Apply updates if any
+      const updateKeys = Object.keys(updates);
+      if (updateKeys.length > 0) {
+        await Content.findByIdAndUpdate(existing._id, { $set: updates });
+        logger.debug({ slug: existing.slug, updatedFields: updateKeys.join(', ') },
+          'ContentRegistry: metadata merged into existing content');
+      }
+
+      // Re-fetch to return fresh document
+      const refreshed = await Content.findById(existing._id).lean();
+      return refreshed || existing;
     }
 
     // Not found — register new

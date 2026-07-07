@@ -977,21 +977,47 @@ The legacy single `sourceId`/`sourceSite` must be replaced with a structured pro
 - ContentService delegates to MetadataManager for trending/search/details
 - Metadata providers live in `server/src/metadata/sources/` (separate from stream providers)
 - OTT-style lifecycle: no auto-register on browse, only on detail/playback
-- **C5b (pending):** Auto-register on discovery, `registerOrUpdate()`
-- **C5c (pending):** Remove tmdb-* navigation bridge
-- **C5d (pending):** UI Source Selector
-- **C5e (pending):** Homepage Provider Merge
 
-**Files created:**
+**C5a files created:**
 - `server/src/metadata/BaseMetadataProvider.js`
 - `server/src/metadata/MetadataManager.js`
 - `server/src/metadata/sources/tmdb.metadata.js`
 
-**Files modified:**
+**C5a files modified:**
 - `server/src/models/Content.model.js` — added `metadataSources` Map
 - `server/src/providers/ContentRegistry.js` — added `registerOrUpdate()`, metadataSources lookup
 - `server/src/services/content.service.js` — replaced TMDbService with MetadataManager
 - `server/src/app.js` — MetadataManager initialization at startup
+
+- [x] **C5b Status:** ✅ COMPLETE — Nova Identity Registration Lifecycle
+- `ContentRegistry.registerOrUpdate()` refined with comprehensive safe merge rules:
+  - Always: voteAverage, voteCount, popularity
+  - If missing: posterPath, backdropPath, overview, tagline, originalTitle, runtime, contentRating
+  - If empty: cast, videos, productionCompanies
+  - NEVER overwrites: title, contentType, providers[], sourceId/sourceSite, isActive, categories, tags, languages
+- `ContentService.getByTmdbId()` now calls `registerOrUpdate()` after MetadataManager fetch
+  - Returns real Content document (Mongo _id, Nova slug, metadataSources)
+  - Removes dependency on synthetic `_id: tmdb-{id}`
+  - Preserves series seasons/episodes from TMDB response for frontend display
+- `verify-content-identity.js` audit script created with 7 checks + --fix mode
+- 41 legacy items had metadataSources.tmdb synced via audit --fix
+
+**C5b files created:**
+- `server/scripts/verify-content-identity.js`
+
+**C5b files modified:**
+- `server/src/providers/ContentRegistry.js` — safe merge rules, re-fetch after update
+- `server/src/services/content.service.js` — registerOrUpdate() on detail fetch, import ContentRegistry
+
+**Validation (all pass):**
+- ✅ Test A: TMDB-only movie creates Content doc with real _id and slug
+- ✅ Test B: Refresh reuses existing doc (no duplicate)
+- ✅ Test C: Existing YupFlix/CastleTV content — providers[] untouched, playback works
+- ✅ Test D: Series — seasons/episodes correct, playback works
+
+- **C5c (pending):** Remove tmdb-* navigation bridge
+- **C5d (pending):** UI Source Selector
+- **C5e (pending):** Homepage Provider Merge
 
 ### Phase C6 — UI Source Selector (Future)
 - [ ] **Status:** ❌ NOT STARTED
