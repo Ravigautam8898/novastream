@@ -20,21 +20,20 @@
 | 08 | Production | Docker, CI/CD, monitoring, logging, deployment config | 🔒 FROZEN ✅ |
 | 09 | Scalability | Architecture, provider abstraction, horizontal scaling | 🟡 BATCH A1 CERTIFIED (SC-014+SC-015) |
 | 10 | Final Certification | End-to-end verification, security audit, readiness check | PENDING |
-| C | Dynamic Provider Plugin System | Provider abstraction, plugin manager, multi-provider fallback, extractor system | 🔒 FROZEN (C1) |
+| C | Dynamic Provider Plugin System | ContentRegistry, BaseProvider, ProviderManager, ProviderRegistry, ScraperQueue | 🔒 FROZEN (C1+C2) |
 
 ---
 
 ## Track C — Dynamic Provider Plugin System
 
-**Focus:** Provider abstraction layer, plugin discovery, fallback chain, extractor system, provider registry
-- `server/src/providers/` — BaseProvider, ProviderManager, ProviderRegistry
-- `server/src/providers/sources/` — Individual provider implementations
-- `server/src/providers/extractors/` — Video host resolvers
-- `server/src/services/content-source.service.js` — REFACTORED to delegate to ProviderManager
-- `server/src/routes/external-source.routes.js` — Updated for multi-provider
+**Focus:** Provider abstraction layer, ContentRegistry, ScraperQueue, fallback chain, extractor system
+- `server/src/providers/` — ContentRegistry, BaseProvider, ProviderManager, ProviderRegistry, ScraperQueue
+- `server/src/providers/sources/` — Individual provider implementations (empty until C3)
+- `server/src/providers/extractors/` — Video host resolvers (empty until C5)
+- `server/src/models/Content.model.js` — Updated with providers[] array
 
-**Status:** 🔒 FROZEN (Phase C1) — Architecture complete, decisions C-001 through C-011 frozen
-**Next:** Phase C2 — Provider Framework Implementation (BaseProvider, ProviderManager, ProviderRegistry)
+**Status:** 🔒 FROZEN (Phases C1 + C2) — Architecture + Framework complete, decisions C-001 through C-013 frozen
+**Next:** Phase C3 — YupFlix Provider Migration (create yupflix.provider.js, wire ProviderManager)
 
 ---
 

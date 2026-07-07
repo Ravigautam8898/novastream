@@ -98,16 +98,16 @@ NovaStream currently has **THREE independent governance tracks**. They must NOT 
 | Field | Value |
 |-------|-------|
 | **Purpose** | Move NovaStream from single embedded provider to scalable multi-provider plugin system |
-| **Status** | 🔒 **FROZEN** — Phase C1 Architecture Complete |
-| **Phase C1** | Architecture documentation, review, and freeze ✅ COMPLETE |
-| **Phase C2** | Provider Framework (BaseProvider, ProviderManager, ProviderRegistry) ⏳ NEXT |
-| **Implementation** | ❌ NOT STARTED — Ready for Phase C2 |
+| **Status** | 🔒 **FROZEN** — C1 Architecture + C2 Framework Complete |
+| **Phase C1** | Architecture documentation, review, and freeze ✅ 🔒 FROZEN |
+| **Phase C2** | Provider Framework (ContentRegistry, BaseProvider, ProviderRegistry, ScraperQueue, ProviderManager) ✅ 🔒 FROZEN |
+| **Phase C3** | YupFlix Provider Migration ⏳ NEXT |
 | **Governance** | Follows Track A governance model (findings lifecycle, certification, decisions) |
 | **Proposal** | `audit/phase-c-provider-system/FINDINGS.md` |
 | **SDK Guide** | `audit/phase-c-provider-system/PROVIDER_DEVELOPMENT.md` — Full provider conversion guide with templates |
-| **Decisions** | C-001 through C-011 — frozen baseline |
+| **Decisions** | C-001 through C-013 — frozen baseline |
 
-**⚠️ Track C Phase C1 is 🔒 FROZEN.** No further architecture changes. Do not modify frozen decisions (C-001 through C-011) without an architecture amendment process. Begin Phase C2 — Provider Framework Implementation.
+**⚠️ Track C Phases C1 + C2 are 🔒 FROZEN.** No further architecture or framework changes. Do not modify frozen decisions without an architecture amendment process. Begin Phase C3 — YupFlix Provider Migration.
 
 > 📍 `audit/phase-c-provider-system/` tracks Track C architecture. `audit/` tracks Track A audit progress.
 

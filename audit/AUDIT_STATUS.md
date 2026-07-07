@@ -32,13 +32,13 @@ NovaStream currently has **three independent governance tracks** that run in par
 
 | Field | Value |
 |-------|-------|
-| **Status** | 🔒 **FROZEN** — Phase C1 Architecture Complete, Implementation Ready |
-| **Phase C1** | Architecture documentation, review, and freeze ✅ COMPLETE |
-| **Phase C2** | Provider Framework (BaseProvider, ProviderManager, ProviderRegistry, ContentRegistry) ✅ IMPLEMENTED |
-| **Implementation** | ❌ NOT STARTED — Ready to begin Phase C2 |
+| **Status** | 🔒 **FROZEN** — C1 Architecture + C2 Framework Certified |
+| **Phase C1** | Architecture documentation, review, and freeze ✅ 🔒 FROZEN |
+| **Phase C2** | Provider Framework (ContentRegistry, BaseProvider, ProviderRegistry, ScraperQueue, ProviderManager) ✅ 🔒 FROZEN |
+| **Phase C3** | YupFlix Provider Migration ⏳ NEXT |
 | **Proposal** | `phase-c-provider-system/FINDINGS.md` |
 | **SDK Guide** | `phase-c-provider-system/PROVIDER_DEVELOPMENT.md` |
-| **Decisions** | C-001 through C-011 frozen as baseline |
+| **Decisions** | C-001 through C-013 frozen as baseline |
 | **Governance** | Follow Track A governance model (findings lifecycle, certification, decisions) |
 
 ---

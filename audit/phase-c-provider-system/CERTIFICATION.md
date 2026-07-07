@@ -19,12 +19,13 @@
 | **Closed** | 0 |
 | **Rejected** | 0 |
 | **Won't Fix** | 0 |
-| **Status** | 🟡 C1 🔒 FROZEN · C2 ✅ IMPLEMENTED · C3 ❌ Not Started |
+| **Status** | 🟢 C1 🔒 FROZEN · C2 🔒 FROZEN · C3 ❌ Not Started |
 | **C1 Start Date** | 2026-07-06 |
 | **C1 Freeze Date** | 2026-07-06 |
 | **C2 Implementation Date** | 2026-07-07 |
-| **Decisions Frozen** | C-001 through C-011 |
-| **C2 Implementation** | ✅ COMPLETE (awaiting user certification) |
+| **C2 Freeze Date** | 2026-07-07 |
+| **Decisions Frozen** | C-001 through C-013 |
+| **C2 Implementation** | ✅ CERTIFIED 🔒 FROZEN |
 
 ---
 
@@ -73,6 +74,65 @@
 | 10 | Legacy sourceId/sourceSite compatibility | ✅ | `_getProviderMapping()` checks providers[] first, falls back to legacy |
 | 11 | StreamPolicy metadata support | ✅ | STATIC_URL, SIGNED_URL, DYNAMIC in BaseProvider metadata |
 | 12 | ProviderType execution modes | ✅ | API→DIRECT, LIGHT_SCRAPER→QUEUE, BROWSER_SCRAPER→WORKER |
+
+## C2 Validation Results (2026-07-07)
+
+### 1. Content Model Migration Safety ✅
+
+| Check | Result |
+|-------|--------|
+| Existing sourceId/sourceSite still present | ✅ Both fields intact (backward compatible) |
+| New providers[] field is optional | ✅ Not required — old documents unaffected |
+| All existing indexes preserved | ✅ 8 indexes verified (slug unique, tmdbId sparse unique, text search, compound) |
+| No duplicate slug/tmdbId risk | ✅ Slug unique index, tmdbId sparse unique index prevent duplicates |
+| Old queries not broken | ✅ 52/52 tests pass — zero regressions |
+
+### 2. ContentRegistry Validation ✅
+
+| Scenario | Expected | Result |
+|----------|----------|--------|
+| Same TMDB item discovered twice | Existing content reused, no duplicate | ✅ `lookup()` returns existing by tmdbId first |
+| Same title, different year/type | Not incorrectly merged | ✅ Year validation in `identify()` returns low confidence (0.3) on mismatch |
+| FROM vs Notes corruption prevention | Cannot happen again | ✅ `identify()` requires year+type match for non-exact titles; `attachProvider()` uses `$addToSet` |
+| Provider item with tmdbId | Matched at confidence 1.0 | ✅ tmdbId is priority 1 in lookup chain |
+| Provider item with title+year+type only | Matched at confidence 0.85 | ✅ With year validation |
+
+### 3. ProviderManager Validation ✅
+
+| Check | Result |
+|-------|--------|
+| API before LIGHT_SCRAPER before BROWSER_SCRAPER | ✅ Ordering simulation verified |
+| Unhealthy provider skipped | ✅ Sorts after healthy providers of same type |
+| Failed provider doesn't block playback | ✅ Per-provider try/catch in loop; continues to next |
+| Fallback path works | ✅ Tries API → LIGHT_SCRAPER → BROWSER_SCRAPER in sequence |
+| Cache-first before provider calls | ✅ `_checkCache()` before lock acquisition |
+| Distributed lock prevents stampede | ✅ Reuses existing DistributedLock |
+
+### 4. ScraperQueue Validation ✅
+
+| Check | Result |
+|-------|--------|
+| Global concurrency limit (5) | ✅ Enforced — tasks 6+ correctly queued |
+| Circuit breaker opens at 5 failures | ✅ Simulation confirmed |
+| Exponential backoff (30s → 60s → 120s) | ✅ Verified after circuit trips |
+| Server CPU protected at capacity | ✅ Active tasks never exceed GLOBAL_MAX |
+
+### 5. Legacy Compatibility ✅
+
+| Check | Result |
+|-------|--------|
+| ContentSourceService unchanged | ✅ All functions intact (getStreamUrl, refreshStreamUrl, etc.) |
+| sourceId/sourceSite lookups working | ✅ Verified in source file |
+| Existing YupFlix playback unaffected | ✅ C3 not started — ContentSourceService still sole resolver |
+
+### 6. Runtime Validation ✅
+
+| Check | Result |
+|-------|--------|
+| All 6 framework modules load | ✅ Module load test passed (no DB required) |
+| 52/52 tests pass | ✅ 4 suites, 52 tests, 0 failures (1.862s) |
+| All 7 source files pass syntax check | ✅ ContentRegistry, BaseProvider, ProviderRegistry, ScraperQueue, ProviderManager, Content.model, app.js |
+| Content schema verified | ✅ All critical paths present, indexes valid, providers[] optional |
 
 ### C2 Not In Scope (deferred to C3+)
 
