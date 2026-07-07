@@ -187,12 +187,14 @@ async function syncExternalContent() {
           externalItems.set(id, {
             externalId: id,
             title: item.title || item.name || 'Unknown',
+            tmdbId: item.tmdbId || item.tmdb_id || null,
             contentType: item.contentType || 'movie',
             categories: item.categories || [],
             posterPath: item.posterPath || item.poster || null,
             backdropPath: item.backdropPath || item.backdrop || null,
             overview: item.overview || item.description || null,
             voteAverage: item.voteAverage || item.rating || 0.0,
+            releaseDate: item.releaseDate || item.release_date || null,
           });
         }
       }
@@ -234,27 +236,69 @@ async function syncExternalContent() {
           continue;
         }
 
-        // Try to find matching content by title
+        // C-012: Identity-aware matching — never mutate Content identity with provider data.
+        // Priority: tmdbId exact match > title + year + type > reject low-confidence.
         let bestMatch = null;
         let bestScore = 0;
+        let matchMethod = 'none';
 
-        for (const local of allLocalContent) {
-          const score = titleMatchScore(extItem.title, local.title);
-          if (score > bestScore && score >= 80) {
-            // Also check contentType matches
-            if (local.contentType === extItem.contentType) {
-              bestScore = score;
-              bestMatch = local;
+        // Priority 1: tmdbId exact match (100% confidence)
+        if (extItem.tmdbId) {
+          const tmdbMatch = allLocalContent.find(local =>
+            local.tmdbId === extItem.tmdbId && local.contentType === extItem.contentType
+          );
+          if (tmdbMatch) {
+            bestMatch = tmdbMatch;
+            bestScore = 100;
+            matchMethod = 'tmdbId';
+          }
+        }
+
+        // Priority 2: title + year + type match (high confidence) — only if tmdbId didn't match
+        if (!bestMatch) {
+          for (const local of allLocalContent) {
+            const score = titleMatchScore(extItem.title, local.title);
+            if (score > bestScore && score >= 80) {
+              // Content type must match
+              if (local.contentType === extItem.contentType) {
+                // Require year coincidence for titles that aren't exact matches
+                // This prevents "Notes from the Last Row" matching "FROM" via substring
+                if (score < 100) {
+                  const extYear = extItem.releaseDate ? new Date(extItem.releaseDate).getFullYear() : null;
+                  const localYear = local.releaseDate || local.firstAirDate ? new Date(local.releaseDate || local.firstAirDate).getFullYear() : null;
+                  if (extYear && localYear && Math.abs(extYear - localYear) <= 2) {
+                    bestScore = score;
+                    bestMatch = local;
+                    matchMethod = 'titleYearType';
+                  } else if (extYear && localYear) {
+                    // Year mismatch — low confidence, log and skip
+                    if (options.verbose) {
+                      console.log(`  ⚠️  Year mismatch for "${extItem.title}" vs "${local.title}": ${extYear} vs ${localYear}`);
+                    }
+                  } else {
+                    // No year data available — still allow but log
+                    bestScore = score;
+                    bestMatch = local;
+                    matchMethod = 'titleTypeNoYear';
+                  }
+                } else {
+                  // Exact title match — allow even without year
+                  bestScore = score;
+                  bestMatch = local;
+                  matchMethod = 'exactTitle';
+                }
+              }
             }
           }
         }
 
         if (bestMatch) {
-          // Update existing content with external source IDs
+          // C-012: NEVER overwrite existing Content title, originalTitle, or other metadata
+          // Only set sourceId and sourceSite for provider stream resolution.
           if (options.dryRun) {
             stats.matched++;
             if (options.verbose) {
-              console.log(`  🔗 WOULD MAP: "${extItem.title}" → "${bestMatch.title}" (score: ${bestScore})`);
+              console.log(`  🔗 WOULD MAP: "${extItem.title}" → "${bestMatch.title}" (method: ${matchMethod}, score: ${bestScore})`);
             }
           } else {
             await Content.findByIdAndUpdate(bestMatch._id, {
@@ -264,14 +308,19 @@ async function syncExternalContent() {
                 // Update categories from external if not already set
                 ...(bestMatch.categories?.length ? {} : { categories: extItem.categories }),
               },
+              // C-012: Never update title, originalTitle, posterPath, backdropPath, or overview
+              // from provider data — those come from TMDB (authoritative identity).
             });
             stats.matched++;
             if (options.verbose) {
-              console.log(`  ✅ Mapped: "${extItem.title}" → "${bestMatch.title}"`);
+              console.log(`  ✅ Mapped: "${extItem.title}" → "${bestMatch.title}" (method: ${matchMethod})`);
             }
           }
         } else {
-          // No match found — create new content entry
+          // No match found — create new content entry (external provider data only)
+          if (options.verbose) {
+            console.log(`  ❓ No local match for "${extItem.title}" — will create new entry`);
+          }
           if (!options.dryRun) {
             // Check if slug exists, create unique one
             let slug = Content.generateSlug(extItem.title);

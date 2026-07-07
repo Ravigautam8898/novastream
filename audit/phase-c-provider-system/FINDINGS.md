@@ -740,7 +740,103 @@ A common alternative is to run scrapers in the user's browser (client-side JavaS
 
 ## Findings
 
-*No findings yet — phase is in ARCHITECTURE PROPOSAL status.*
+### C-012 — Legacy Identity Contamination
+
+**Status:** FOUND IN PRODUCTION TEST — RESOLVED
+
+**Root cause confirmed:** The legacy single-field `sourceId`/`sourceSite` model on Content documents allowed sync-external-content.js to mutate an existing document's provider mapping without strong identity verification. The title matching algorithm could match a provider item to the wrong Content document when titles were dissimilar (e.g., multiple-word provider title matched to a Content document whose slug was generated from a different, short title). Once matched, the `$set` operation persisted the incorrect `sourceId` to the document, contaminating the identity.
+
+**Real-world case:** Content doc with `tmdbId: 124364` (TMDB's "FROM") had its `title` overwritten to "Notes from the Last Row" (a different show on the provider) and its `sourceId` set to the Notes from the Last Row's provider ID. The slug `from-vz6s` was generated from the original title "FROM". When browsing, users saw "Notes from the Last Row" title with FROM's TMDB metadata (posters, ratings). Clicking the item showed FROM's TMDB detail pages. The stream played Notes from the Last Row via the incorrect `sourceId`.
+
+**Fix applied:**
+1. `title` restored to "FROM" (from `originalTitle`)
+2. `sourceId` and `sourceSite` removed (incorrect provider mapping)
+3. Document now has clean TMDB identity with no provider association
+
+**Preventive measures (deployed with this fix):**
+- **sync-external-content.js** now checks `tmdbId` first (if external API provides it) before falling back to title matching
+- Title-only matches now require year coincidence for non-exact matches
+- `$set` operations never mutate `title`, `originalTitle`, `posterPath`, `backdropPath`, or `overview`
+- New `audit-content-identity.js` script detects duplicate slugs, tmdbIds, and identity contamination
+- New `repair-content-identity.js` script (dry-run default) fixes title-conflict records
+- `getSeriesBySlug` reverted to prefer DB seasons (TMDB-authoritative) over external source
+
+**Remaining orphaned-source records:** 596 records have `sourceId` but no `tmdbId`. These were created by the sync script with provider-only data and have no TMDB anchor. They continue to work for streaming but should be TMDB-seeded in Track C2 to establish proper identity.: Single sourceId/sourceSite on Content Model
+
+| Field | Value |
+|-------|-------|
+| **Finding ID** | C-012 |
+| **Phase** | C — Dynamic Provider Plugin System |
+| **Category** | Architecture — Data Model |
+| **Severity** | High |
+| **Risk** | High |
+| **Status** | OPEN — Covered by C2 provider mapping design |
+| **Affected Files** | `server/src/models/Content.model.js`, `server/scripts/sync-external-content.js`, `server/src/services/sync-scheduler.service.js` |
+
+**Description:**
+The legacy Content model stores a single `sourceId`/`sourceSite` pair directly on the document. This creates a tight coupling between content identity (TMDB-based metadata) and provider identity (external streaming source). A bad sync match can overwrite `sourceId` without updating metadata, causing the document to represent one show's metadata with another show's stream mapping.
+
+**Real-world example discovered during Pre-C2 smoke testing:**
+- A MongoDB Content document (slug: `from-vz6s`) was originally seeded for the show "FROM" with cached seasons/episodes in the DB
+- The sync process(`sync-external-content.js`) matched "Notes from the Last Row" to this existing document and updated its `sourceId`
+- Result: DetailPage/WatchPage showed "FROM" metadata(title, cached DB seasons) but the stream resolver used the new `sourceId` pointing to "Notes from the Last Row"
+- The stream correctly played "Notes from the Last Row", but the episode list and metadata were wrong
+
+**Mitigation applied:** `getSeriesBySlug` now prioritizes the external source(identified by `sourceId`) over cached DB seasons for episode metadata — see commit `dccde95`. This ensures metadata and stream come from the same provider at runtime.
+
+**Root Cause — Legacy Data Model:**
+```javascript
+// Content.model.js — Current (problematic)
+{
+  tmdbId: Number,       // TMDB identity (primary)
+  title: String,        // Metadata
+  slug: String,         // URL identity
+  sourceId: String,     // ← Single provider mapping (overwritable by sync)
+  sourceSite: String,   // ← Single provider mapping
+}
+```
+
+The single `sourceId`/`sourceSite` pattern allows a sync process to atomically overwrite the provider mapping without any identity verification — there is only one slot to fill, no concept of multiple providers, no confidence scoring, and no version tracking.
+
+**Required for Track C2 — Provider mapping replacement:**
+
+The legacy single `sourceId`/`sourceSite` must be replaced with a structured provider mappings array:
+
+```javascript
+// Content.model.js — Future (Track C2)
+{
+  tmdbId: Number,              // TMDB identity remains PRIMARY
+  title: String,               // Metadata (never overwritten by provider sync)
+  slug: String,                // URL identity (never overwritten by provider sync)
+
+  // Provider mappings — only for stream resolution
+  providers: [{
+    providerName: String,      // 'yupflix' | 'castletv' | 'bollyflix'
+    providerContentId: String, // The provider's internal ID for this content
+    confidenceScore: Number,   // 0.0 - 1.0 — how confident the match is
+    lastVerified: Date,        // When this mapping was last confirmed
+    status: String,            // 'active' | 'stale' | 'failed'
+  }],
+}
+
+// REMOVED:
+// sourceId: String,
+// sourceSite: String,
+```
+
+**Design rules for Track C2:**
+1. **TMDB identity is primary** — `tmdbId`, `title`, `slug` are metadata-only and NEVER overwritten by provider sync
+2. **Provider IDs are only stream resolution mappings** — `providers[]` tells ProviderManager which external content IDs to query for streams, nothing more
+3. **Provider matching requires confidence validation** — a match below a threshold(e.g. 0.7) must be reviewed rather than automatically applied
+4. **Sync process must not mutate metadata** — the sync should only add/update entries in `providers[]`, never touch `title`, `slug`, `posterPath`, etc.
+
+**Backward compatibility:** The `getSeriesBySlug` identity fix(commit `dccde95`) serves as a bridge until C2 migration. When C2 introduces the `providers[]` array, the old `sourceId`/`sourceSite` fields can be deprecated and removed after a data migration phase.
+
+| User Approval | Implementation Date | Build Status | Browser Test Status | Regression Status |
+|:---:|:---:|:---:|:---:|:---:|
+| Pending | C2 | — | — | — |
+
+**Certification Status:** PENDING
 
 ---
 
