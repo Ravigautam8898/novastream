@@ -156,6 +156,69 @@ return JSON.parse(decrypted.toString('utf8'));
 - Crypto logic goes in the provider file (it IS the provider logic)
 - API keys, domains, and tokens go in ProviderRegistry (never hardcoded)
 
+## Provider Mapping Contract (C4c)
+
+When ProviderManager calls `getStreams()`, it passes the **full provider mapping object** from the Content document's `providers[]` array — not just the content ID. This allows providers to use either simple content IDs or provider-specific data.
+
+### Mapping Object Structure
+
+```javascript
+{
+  providerName: 'castletv',          // Provider identifier
+  providerContentId: '5823784641434624', // Primary content ID (always present)
+  providerData: {                     // Provider-specific storage (optional)
+    movieId: '5823784641434624',      // CastleTV: movie ID
+    seasonMap: { '1': 'ep100' },      // Example: season-to-episode mapping
+    matchedYear: 2012,                // Example: year used during matching
+    originalTitle: 'Cocktail'         // Example: title from provider search
+  },
+  confidenceScore: 0.85,              // Matching confidence (0-1)
+}
+```
+
+### Provider Responsibility
+
+- **ProviderManager = routing only** — passes the mapping object and options
+- **Provider plugin = interprets the mapping** — decides whether to use `providerContentId` or extract fields from `providerData`
+
+### Simple Provider Pattern (YupFlix)
+
+```javascript
+async getStreams(mapping, options = {}) {
+  // Simple: just use providerContentId
+  const contentId = mapping.providerContentId;
+  const { season, episode, quality } = options;
+  // ... fetch streams using contentId
+}
+```
+
+### Advanced Provider Pattern (CastleTV)
+
+```javascript
+async getStreams(mapping, options = {}) {
+  const contentId = mapping.providerContentId;
+  const providerData = mapping.providerData || {};
+  
+  // Use providerData for provider-specific fields
+  const movieId = providerData.movieId || contentId;
+  const serverId = providerData.serverId;
+  // ... fetch streams using movieId and optional serverId
+}
+```
+
+### providerData Examples by Provider
+
+| Provider | providerData Content |
+|----------|---------------------|
+| **CastleTV** | `{ movieId, seasonMap, episodeMap }` |
+| **Anime provider** | `{ animeId, episodeSlug, serverId }` |
+| **IMDb-based** | `{ imdbId }` |
+| **YupFlix** | (none — uses `providerContentId` only) |
+
+### Cache Key
+
+The cache key is built from `providerName` + `providerContentId` — NOT from `providerData`. This ensures cache compatibility across providers with different `providerData` structures but the same content.
+
 ## Troubleshooting
 
 - **Provider not registered**: Check `pm2 logs` for errors. Verify file ends in `.provider.js`.

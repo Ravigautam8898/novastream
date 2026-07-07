@@ -164,14 +164,22 @@ class BaseProvider {
    * Get playable streaming URLs for a content item.
    * This is the primary method — called when user presses PLAY.
    *
-   * @param {string} contentId - Provider's internal content ID
+   * ProviderManager passes the full provider mapping object so providers
+   * can use providerContentId (simple providers) OR providerData (advanced providers).
+   *
+   * @param {Object} mapping - Provider mapping from content.providers[]
+   * @param {string} mapping.providerContentId - Primary content ID (always present)
+   * @param {Object} [mapping.providerData] - Provider-specific data (optional, C4c)
    * @param {Object} [options]
    * @param {number} [options.season] - Season number (series only)
    * @param {number} [options.episode] - Episode number (series only)
    * @param {string} [options.quality] - Requested quality ('480p', '720p', '1080p')
+   * @param {string} [options.contentType] - 'movie' or 'series'
    * @returns {Promise<Array<{url: string, quality: string, type: string, headers?: Object}>>}
    */
-  async getStreams(contentId, options = {}) {
+  async getStreams(mapping, options = {}) {
+    // Simple providers: use mapping.providerContentId
+    // Advanced providers: use mapping.providerData for provider-specific fields
     throw new Error(`Provider "${this.constructor.metadata.id}" must implement getStreams()`);
   }
 

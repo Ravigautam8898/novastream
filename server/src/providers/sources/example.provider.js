@@ -113,27 +113,36 @@ class ExampleProvider extends BaseProvider {
    * Get playable streaming URLs — PRIMARY METHOD.
    * Called when user presses PLAY.
    *
-   * @param {string} contentId - Provider's internal content ID
+   * ProviderManager passes the full mapping object from content.providers[].
+   * Simple providers use mapping.providerContentId.
+   * Advanced providers can use mapping.providerData for provider-specific fields.
+   *
+   * @param {Object} mapping - Provider mapping (C4c contract)
+   * @param {string} mapping.providerContentId - Primary content ID (always present)
+   * @param {Object} [mapping.providerData] - Provider-specific storage (optional)
    * @param {Object} [options]
    * @param {number} [options.season] - Season number (series only)
    * @param {number} [options.episode] - Episode number (series only)
    * @param {string} [options.quality] - Requested quality ('480p', '720p', '1080p')
    * @returns {Promise<Array<{url: string, quality: string, type: string, headers?: Object}>>}
    */
-  async getStreams(contentId, options = {}) {
+  async getStreams(mapping, options = {}) {
+    // Simple provider: use mapping.providerContentId
+    // Example: const contentId = mapping.providerContentId;
+    //
+    // Advanced provider: use mapping.providerData for provider-specific fields
+    // Example: const { movieId, episodeSlug, serverId } = mapping.providerData || {};
+    //
     // For movies:
     //   GET /api/movies/${contentId}/streams
-    //   Return available quality variants as array of { url, quality, type }
-
+    //
     // For series:
     //   GET /api/series/${contentId}/episodes/${season}/${episode}/streams
-    //   Return available quality variants for that episode
-
-    // Each entry in the returned array represents one quality variant:
+    //
+    // Return available quality variants as array:
     // [
-    //   { url: 'https://cdn.example.com/stream_1080p.m3u8', quality: '1080p', type: 'hls' },
-    //   { url: 'https://cdn.example.com/stream_720p.m3u8',  quality: '720p',  type: 'hls' },
-    //   { url: 'https://cdn.example.com/stream_480p.m3u8',  quality: '480p',  type: 'hls' },
+    //   { url: '...1080p.m3u8', quality: '1080p', type: 'hls' },
+    //   { url: '...720p.m3u8',  quality: '720p',  type: 'hls' },
     // ]
 
     throw new Error(`Provider "${this.constructor.metadata.id}" must implement getStreams()`);

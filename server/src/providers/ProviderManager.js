@@ -382,7 +382,7 @@ class ProviderManager {
   static async _resolveWithMapping({ content, mapping, slug, contentType, quality, season, episode }) {
     const { providerName, providerContentId } = mapping;
 
-    // Build cache key
+    // Build cache key (still uses providerContentId for backward-compatible cache format)
     let cacheKey;
     if (contentType === 'movie') {
       cacheKey = `${providerName}:movie:${providerContentId}:${quality || '720p'}`;
@@ -445,10 +445,13 @@ class ProviderManager {
         if (!this._matchesProvider(meta, providerName)) continue;
 
         try {
-          const streams = await provider.getStreams(providerContentId, {
+          // C4c: pass full mapping object so providers can use providerData
+          const streams = await provider.getStreams(mapping, {
             season,
             episode,
             quality,
+            contentType,
+            slug,
           });
           if (streams && streams.length > 0) {
             streamResult = this._pickBestStream(streams, quality);
@@ -470,7 +473,8 @@ class ProviderManager {
           if (!this._matchesProvider(meta, providerName)) continue;
 
           try {
-            const streams = await ScraperQueue.submit(provider, 'getStreams', [providerContentId, { season, episode, quality }]);
+            // C4c: pass full mapping object so scraper providers can use providerData
+          const streams = await ScraperQueue.submit(provider, 'getStreams', [mapping, { season, episode, quality, contentType, slug }]);
             if (streams && streams.length > 0) {
               streamResult = this._pickBestStream(streams, quality);
               allQualities = streams.map(s => ({ quality: s.quality, url: s.url }));
@@ -492,7 +496,8 @@ class ProviderManager {
           if (!this._matchesProvider(meta, providerName)) continue;
 
           try {
-            const streams = await ScraperQueue.submit(provider, 'getStreams', [providerContentId, { season, episode, quality }]);
+            // C4c: pass full mapping object so browser scraper providers can use providerData
+            const streams = await ScraperQueue.submit(provider, 'getStreams', [mapping, { season, episode, quality, contentType, slug }]);
             if (streams && streams.length > 0) {
               streamResult = this._pickBestStream(streams, quality);
               allQualities = streams.map(s => ({ quality: s.quality, url: s.url }));
@@ -637,7 +642,7 @@ class ProviderManager {
    * C4b: Enables multi-provider fallback — if one provider fails, the next is tried.
    *
    * @param {Object} content - Content document (lean)
-   * @returns {Array<{ providerName: string, providerContentId: string, confidenceScore?: number }>}
+   * @returns {Array<{ providerName: string, providerContentId: string, providerData: Object, confidenceScore?: number }>}
    */
   static _getProviderMappings(content) {
     const mappings = [];
@@ -664,6 +669,7 @@ class ProviderManager {
           mappings.push({
             providerName: p.providerName,
             providerContentId: p.providerContentId,
+            providerData: p.providerData || {},
             confidenceScore: p.confidenceScore,
           });
         }
@@ -687,6 +693,7 @@ class ProviderManager {
         mappings.push({
           providerName: legacyName,
           providerContentId: content.sourceId,
+          providerData: {},
           confidenceScore: 0, // Lowest — legacy data
         });
       }

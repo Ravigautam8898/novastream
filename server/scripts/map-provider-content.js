@@ -173,11 +173,21 @@ async function mapContent() {
         continue;
       }
 
-      // Step 5: Attach the provider mapping
+      // Step 5: Build providerData from search result (C4c)
+      // Providers can attach extra fields via providerData for advanced use
+      const providerData = bestMatch.providerData || {};
+      if (!bestMatch.providerData && bestMatch.year) {
+        providerData.matchedYear = bestMatch.year;
+        providerData.originalTitle = bestMatch.title;
+        providerData.providerType = bestMatch.type;
+      }
+
+      // Step 6: Attach the provider mapping
       if (isApply) {
         await ContentRegistry.attachProvider(doc._id, {
           providerName,
           providerContentId: bestMatch.id,
+          providerData,
           confidence: bestConfidence / 100,
           status: bestConfidence >= 90 ? 'verified' : 'active',
         });
@@ -188,6 +198,7 @@ async function mapContent() {
         const action = isApply ? '✅ MAPPED' : '🔍 WOULD MAP';
         console.log(`  ${progress} ${docInfo}`);
         console.log(`           ${action} → ${providerName} ID: ${bestMatch.id} (confidence: ${bestConfidence}%, method: ${matchMethod})`);
+        console.log(`           providerData: ${JSON.stringify(providerData)}`);
         if (bestConfidence < 100) {
           console.log(`           Provider result: "${bestMatch.title}" (${bestMatch.year || '?'}, ${bestMatch.type})`);
         }

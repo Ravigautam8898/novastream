@@ -273,8 +273,7 @@ Every provider extends `BaseProvider` and implements the following methods.
 ### Lifecycle Methods
 
 | Method | Returns | Required | Description |
-|--------|---------|:--------:|-------------|
-| `initialize()` | `Promise<void>` | ✅ | Set up HTTP client, load secrets, validate config |
+|--------|---------|:--------:|-------------|    | `initialize()` | `Promise<void>` | ✅ | Set up HTTP client, load secrets, validate config |
 | `healthCheck()` | `Promise<{ok, latency, error?}>` | ✅ | Check if provider is operational (called every 5 min) |
 | `dispose()` | `Promise<void>` | ❌ | Cleanup on unload (close connections, clear timers) |
 
@@ -285,7 +284,7 @@ Every provider extends `BaseProvider` and implements the following methods.
 | `search(query)` | `Promise<Array>` | ✅ | Search movies, series, anime, live TV |
 | `getDetails(contentId)` | `Promise<Object>` | ✅ | Full content metadata (title, year, poster, cast) |
 | `getEpisodes(contentId)` | `Promise<Array>` | ❌ | Episode list for series (skip for movie-only providers) |
-| `getStreams(contentId, options?)` | `Promise<Array>` | ✅ | Streaming URLs with qualities and headers |
+| `getStreams(mapping, options?)` | `Promise<Array>` | ✅ | Streaming URLs with qualities and headers |
 
 ### Method Signatures
 
@@ -317,13 +316,47 @@ async getEpisodes(contentId) {
 
 // ── getStreams ──
 // Fetch playable streaming URLs for a content item.
-async getStreams(contentId, options = {}) {
-  // contentId: string (provider's content ID)
-  // options: { season?: number, episode?: number, quality?: string }
+// ProviderManager passes the FULL provider mapping object (C4c contract).
+// Simple providers use mapping.providerContentId.
+// Advanced providers can use mapping.providerData for provider-specific fields.
+async getStreams(mapping, options = {}) {
+  // mapping: { providerContentId: string, providerData?: object, confidenceScore?: number }
+  // options: { season?: number, episode?: number, quality?: string, contentType?: string, slug?: string }
+  //
+  // Simple provider pattern:
+  //   const contentId = mapping.providerContentId;
+  //
+  // Advanced provider pattern:
+  //   const { movieId, episodeSlug } = mapping.providerData || {};
+  //   const contentId = movieId || mapping.providerContentId;
+  //
   // Returns: Array<{ url: string, quality: string, type: string, headers?: object }>
   return [{ url: 'https://...', quality: '720p', type: 'hls', headers: { Referer: '...' } }];
 }
 ```
+
+### Provider Mapping Contract (C4c)
+
+ProviderManager now passes the **full provider mapping object** to `getStreams()`, not just the content ID. This enables:
+
+- **Simple providers** (YupFlix): Use `mapping.providerContentId` directly
+- **Advanced providers** (CastleTV): Use `mapping.providerData` for provider-specific fields
+
+```javascript
+// Mapping object structure from content.providers[]:
+{
+  providerName: 'castletv',
+  providerContentId: '5823784641434624',   // Always present
+  providerData: {                           // Provider-specific (optional)
+    movieId: '5823784641434624',
+    seasonMap: { '1': 'ep100' },
+    matchedYear: 2012,
+  },
+  confidenceScore: 0.85,
+}
+```
+
+**Rule:** ProviderManager routes the mapping; the provider decides how to interpret it. ProviderManager must NOT read `providerData` internals.
 
 ### Content-Type Independence
 
@@ -442,7 +475,8 @@ class CastleProvider extends BaseProvider {
     return episodes;
   }
 
-  async getStreams(contentId, options = {}) {
+  async getStreams(mapping, options = {}) {
+    const contentId = mapping.providerContentId || mapping;
     const { season, episode, quality } = options;
 
     const endpoint = season
@@ -621,7 +655,8 @@ class BollyflixProvider extends BaseProvider {
     };
   }
 
-  async getStreams(contentId, options = {}) {
+  async getStreams(mapping, options = {}) {
+    const contentId = mapping.providerContentId || mapping;
     const { season, episode, quality } = options;
 
     // 1. Scrape the watch/embed page
