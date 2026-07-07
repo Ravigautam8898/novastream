@@ -5,18 +5,20 @@
 //   GET /api/health/full    → Returns full health details
 
 const { Router } = require('express');
-const os = require('os');
 const path = require('path');
 const config = require('../config/env');
 const mongoose = require('mongoose');
 const SystemService = require('../services/system.service');
 const ApiResponse = require('../utils/ApiResponse');
 
+// Import reconnect state from database module
+const { reconnectState } = require('../config/database');
+
 const router = Router();
 
 /**
  * Quick health check — returns server status JSON (PPR-007: includes DB state).
- * Replaces the inline handler that was previously in routes/index.js.
+ * Includes database connection state, last disconnect info, and retry status.
  */
 router.get('/', (req, res) => {
   const dbState = mongoose.connection.readyState;
@@ -32,6 +34,10 @@ router.get('/', (req, res) => {
     database: {
       status: dbStateLabels[dbState] || 'unknown',
       connected: dbConnected,
+      lastDisconnect: reconnectState.lastDisconnect?.toISOString() || null,
+      lastReconnect: reconnectState.lastReconnect?.toISOString() || null,
+      retryAttempt: reconnectState.retryAttempt,
+      isReconnecting: reconnectState.isReconnecting,
     },
   });
 });
@@ -107,6 +113,10 @@ router.get('/full', async (req, res) => {
       database: {
         status: dbStateMap[dbState] || 'unknown',
         connected: isDBConnected,
+        lastDisconnect: reconnectState.lastDisconnect?.toISOString() || null,
+        lastReconnect: reconnectState.lastReconnect?.toISOString() || null,
+        retryAttempt: reconnectState.retryAttempt,
+        isReconnecting: reconnectState.isReconnecting,
         version: dbStats?.version || null,
         collections: dbStats?.collections?.length || 0,
         dataSize: dbStats?.dataSize ? formatBytes(dbStats.dataSize) : null,

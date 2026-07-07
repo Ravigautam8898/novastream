@@ -113,6 +113,7 @@ NovaStream currently has **three independent governance tracks** that run in par
 | Date | Fix | Files | Status |
 |------|-----|-------|--------|
 | 2026-07-07 | Developer Setup Baseline — Added `postinstall` to auto-install server/client/CLI deps on `npm install` | `package.json`, `README.md` | ✅ Deployed |
+| 2026-07-07 | Pre-C2 Stability Hardening — Exponential backoff + jitter for MongoDB retry, failure classification (auth vs network), circuit-breaker error logging, clean 4xx error logging (no stack traces), runtime disconnect tracking, health endpoint enhanced | `errorHandler.middleware.js`, `database.js`, `health.routes.js` | ✅ Deployed |
 
 ---
 
