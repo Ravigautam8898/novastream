@@ -573,7 +573,8 @@ class ProviderManager {
   static _getProviderMapping(content) {
     // Priority 1: providers[] array (Track C2)
     if (content.providers && content.providers.length > 0) {
-      const active = content.providers.find(p => p.status === 'active');
+      // Prefer verified/active providers, fall back to first available
+      const active = content.providers.find(p => p.status === 'verified' || p.status === 'active');
       if (active) {
         return {
           providerName: active.providerName,
@@ -582,8 +583,14 @@ class ProviderManager {
       }
     }
 
-    // Priority 2: Legacy sourceId/sourceSite (backward compatibility until C3)
+    // Priority 2: Legacy sourceId/sourceSite (backward compatibility)
     if (content.sourceId) {
+      logger.debug({
+        slug: content.slug,
+        title: content.title,
+        sourceId: content.sourceId,
+        sourceSite: content.sourceSite || 'primary',
+      }, 'ProviderManager: legacy sourceId/sourceSite fallback used — document lacks providers[] mapping');
       return {
         providerName: content.sourceSite || 'primary',
         providerContentId: content.sourceId,

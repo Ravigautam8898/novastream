@@ -215,6 +215,18 @@ All 12 decisions (C-001 through C-011, C-013) are frozen as the baseline. Future
 | Soft-error message compatibility for route handler | ✅ Done — getStreamUrl catches and re-throws with legacy message |
 | All 52 tests pass | ✅ 52/52 pass, zero regressions |
 | Syntax checks on all 3 files | ✅ All pass |
+| Runtime certification | ✅ All 8 tests passed |
+
+### C3b — Provider Mapping Migration ✅ Complete (2026-07-07)
+
+| Task | Status |
+|------|--------|
+| Create `migrate-provider-mappings.js` (dry-run default, idempotent) | ✅ Done |
+| Run migration — scanned 637 docs, migrated 612 | ✅ 612 yupflix mappings added to providers[] |
+| Duplicate prevention verified | ✅ Second run found 0 docs needing migration |
+| ProviderManager prefers providers[] over legacy | ✅ `_getProviderMapping()` checks `verified`/`active` status first |
+| Legacy fallback logging | ✅ Debug log when sourceId/sourceSite used instead of providers[] |
+| Runtime validation (series, movie, cache, refresh) | ✅ All tests pass |
 
 ### Next Phase: C4 — CastleTV / Cleanup
 - Add CastleTV provider plugin
