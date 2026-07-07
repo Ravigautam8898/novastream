@@ -20,7 +20,7 @@
 | 08 | Production | Docker, CI/CD, monitoring, logging, deployment config | 🔒 FROZEN ✅ |
 | 09 | Scalability | Architecture, provider abstraction, horizontal scaling | 🟡 BATCH A1 CERTIFIED (SC-014+SC-015) |
 | 10 | Final Certification | End-to-end verification, security audit, readiness check | PENDING |
-| C | Dynamic Provider Plugin System | ContentRegistry, BaseProvider, ProviderManager, ProviderRegistry, ScraperQueue, YupFlix/CastleTV providers | 🔒 FROZEN (C1+C2+C3+C4) |
+| C | Dynamic Provider Plugin System | ContentRegistry, BaseProvider, ProviderManager, ProviderRegistry, ScraperQueue, YupFlix/CastleTV providers, MetadataManager, metadata providers | C1-C4 🔒 FROZEN · C5a/b/c 🟡 ACTIVE · C5d/e ❌ PENDING |
 
 ---
 
@@ -32,8 +32,9 @@
 - `server/src/providers/extractors/` — Video host resolvers (empty until C5)
 - `server/src/models/Content.model.js` — Updated with providers[] array
 
-**Status:** 🔒 FROZEN (Phases C1 + C2 + C3) — Architecture + Framework + YupFlix migration complete, decisions C-001 through C-013 frozen
-**Next:** Phase C4 — CastleTV Provider Integration
+**Status:** C1-C4 🔒 FROZEN — Architecture + Framework + YupFlix + CastleTV complete, decisions C-001 through C-013 frozen
+**C5a/b/c:** 🟡 ACTIVE — Metadata Provider System + Nova Identity Registration + TMDB Bridge Removal
+**Next:** C5d — Playback Recovery + Stream Lifecycle UX
 
 ---
 

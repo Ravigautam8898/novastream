@@ -1035,13 +1035,15 @@ The legacy single `sourceId`/`sourceSite` must be replaced with a structured pro
 - `client/src/pages/DetailPage.jsx` — removed tmdb- detection
 - `client/src/pages/WatchPage.jsx` — removed tmdb- detection
 
-- **C5d (pending):** UI Source Selector
-- **C5e (pending):** Homepage Provider Merge
+- **C5d (pending):** Playback Recovery + Stream Lifecycle UX
+- **C5e (pending):** Auto Provider Source UI
 
-### Phase C6 — UI Source Selector (Future)
+### Phase C6 — Auto Provider Source UI (Future)
 - [ ] **Status:** ❌ NOT STARTED
-- Frontend component for provider selection
-- Auto mode default, manual override optional
+- Auto mode default (normal users stay on Auto)
+- Fast Sources (API providers) and Backup Sources (LIGHT_SCRAPER/BROWSER_SCRAPER) labels
+- Provider names optional/debug only
+- Backend priority remains authoritative
 
 ### Phase C7 — Extractor System (Future)
 - [ ] **Status:** ❌ NOT STARTED

@@ -7,7 +7,12 @@
 > **Phase C2:** Completed July 7, 2026
 > **Phase C3:** Completed July 7, 2026
 > **Phase C4:** Completed July 7, 2026
-> **Next Phase:** C5 — Extractors (if needed)
+> **Next Phase:** C5d — Playback Recovery + Stream Lifecycle UX
+> **C5a:** Metadata Provider System ✅ 🟡 ACTIVE
+> **C5b:** Nova Identity Registration ✅ 🟡 ACTIVE
+> **C5c:** TMDB Bridge Removal ✅ 🟡 ACTIVE
+> **C5d:** Playback Recovery + Stream Lifecycle UX ❌ PENDING
+> **C5e:** Auto Provider Source UI ❌ PENDING
 > **Last Updated:** July 7, 2026
 
 ---
@@ -298,6 +303,24 @@ All 12 decisions (C-001 through C-011, C-013) are frozen as the baseline. Future
 4. `providerData` = provider-specific data (opaque to ProviderManager)
 5. All future decoded APK providers must follow PROVIDER_DEVELOPMENT.md
 
-### Next Phase: C5 — Extractors (if needed)
-- Extract video host resolvers from providers
-- ExtractorManager dispatch system
+### C5 Completed: Metadata Provider System
+
+**C5a — Metadata Provider Framework (2026-07-07):**
+- BaseMetadataProvider, MetadataManager, tmdb.metadata adapter
+- metadataSources identity model (Map-based, extensible)
+- ContentService delegates to MetadataManager for trending/search/details
+
+**C5b — Nova Identity Registration (2026-07-07):**
+- ContentRegistry.registerOrUpdate() with safe merge rules
+- getByTmdbId() returns real Content doc (Mongo _id, Nova slug)
+- verify-content-identity.js audit script
+
+**C5c — TMDB Bridge Removal (2026-07-07):**
+- ContentCard async registration, slug-only URLs
+- DetailPage/WatchPage: removed all tmdb- detection
+- All URLs: /watch/movie/{nova-slug}, /watch/series/{nova-slug}
+
+### Next Phase: C5d — Playback Recovery + Stream Lifecycle UX
+- Player handles: expired URL, 401, 403, 410, network failure
+- Refresh current provider stream on error
+- ProviderManager fallback to next provider on failure

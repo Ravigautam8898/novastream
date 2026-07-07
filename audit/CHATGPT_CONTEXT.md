@@ -94,21 +94,26 @@ NovaStream currently has **THREE independent governance tracks**. They must NOT 
 
 **⚠️ Track B is COMPLETE and FROZEN.** Do not modify frozen modules without explicit approval (Audit → Proposal → Implementation → Certification). Future work resumes with Track A audit findings.
 
-### Track C — Dynamic Provider Plugin System 🔒 FROZEN
+### Track C — Dynamic Provider Plugin System
 | Field | Value |
 |-------|-------|
 | **Purpose** | Move NovaStream from single embedded provider to scalable multi-provider plugin system |
-| **Status** | 🔒 **FROZEN** — C1 + C2 + C3 + C4 Complete |
+| **Status** | C1-C4 🔒 FROZEN · C5a/b/c 🟡 ACTIVE · C5d/e ❌ PENDING |
 | **Phase C1** | Architecture documentation, review, and freeze ✅ 🔒 FROZEN |
 | **Phase C2** | Provider Framework (ContentRegistry, BaseProvider, ProviderRegistry, ScraperQueue, ProviderManager) ✅ 🔒 FROZEN |
 | **Phase C3** | YupFlix Provider Migration ✅ 🔒 FROZEN |
 | **Phase C4** | CastleTV Provider Integration + Multi-Provider Fallback + Contract Hardening ✅ 🔒 FROZEN |
+| **Phase C5a** | Metadata Provider System — Framework, TMDB adapter, ContentService integration ✅ 🟡 ACTIVE |
+| **Phase C5b** | Nova Identity Registration — registerOrUpdate(), safe merge, audit script ✅ 🟡 ACTIVE |
+| **Phase C5c** | TMDB Bridge Removal — slug-only URLs, ContentCard async registration ✅ 🟡 ACTIVE |
+| **Phase C5d** | Playback Recovery + Stream Lifecycle UX — expired URL, 401/403/410, network failure handling ❌ PENDING |
+| **Phase C5e** | Auto Provider Source UI — Auto mode default, Fast/Backup source labels ❌ PENDING |
 | **Governance** | Follows Track A governance model (findings lifecycle, certification, decisions) |
 | **Proposal** | `audit/phase-c-provider-system/FINDINGS.md` |
 | **SDK Guide** | `audit/phase-c-provider-system/PROVIDER_DEVELOPMENT.md` — Full provider conversion guide with templates |
 | **Decisions** | C-001 through C-013 — frozen baseline |
 
-**⚠️ Track C Phases C1 + C2 + C3 + C4 are 🔒 FROZEN.** No further architecture or framework changes. Do not modify frozen decisions without an architecture amendment process. Next: C5 — Extractors (if needed).
+**⚠️ C1-C4 are 🔒 FROZEN.** No further architecture or framework changes. Do not modify frozen decisions without an architecture amendment process. C5a/b/c are 🟡 ACTIVE. Next: C5d — Playback Recovery + Stream Lifecycle UX.
 
 > 📍 `audit/phase-c-provider-system/` tracks Track C architecture. `audit/` tracks Track A audit progress.
 
