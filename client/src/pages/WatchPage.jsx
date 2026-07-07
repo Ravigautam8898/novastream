@@ -65,8 +65,13 @@ export default function WatchPage() {
   const orientationTimerRef = useRef(null); // FE-011: track timeout for cleanup
 
   const isMovie = contentType === 'movie';
+  const isTmdbItem = slug?.startsWith('tmdb-');
+  const tmdbId = isTmdbItem ? parseInt(slug.replace('tmdb-', ''), 10) : null;
 
   // ── Fetch Content Detail ──
+  // Supports both MongoDB slugs and TMDB-only items (tmdb-{id} prefix).
+  // TMDB items have no sourceId — they will show "Stream Unavailable" until a
+  // provider is connected. This is expected pre-C2 behavior.
   const fetchDetail = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -74,9 +79,18 @@ export default function WatchPage() {
     setStreamUrl(null);
     setPlaybackError(null);
     try {
-      const data = isMovie
-        ? await contentApi.getMovieBySlug(slug)
-        : await contentApi.getSeriesBySlug(slug);
+      let data;
+      if (isTmdbItem && tmdbId) {
+        // TMDB-only content: fetch via TMDB detail bridge
+        data = isMovie
+          ? await contentApi.getMovieByTmdbId(tmdbId)
+          : await contentApi.getSeriesByTmdbId(tmdbId);
+      } else {
+        // Standard: content exists in MongoDB
+        data = isMovie
+          ? await contentApi.getMovieBySlug(slug)
+          : await contentApi.getSeriesBySlug(slug);
+      }
       setItem(data);
 
       // Check if an episode was pre-selected from DetailPage (via location.state)
