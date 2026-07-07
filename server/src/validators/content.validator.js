@@ -58,10 +58,20 @@ const homepageSchema = z.object({
   }),
 });
 
+/**
+ * TMDB ID param schema — used for /movies/tmdb/:id and /series/tmdb/:id routes
+ */
+const tmdbIdParamSchema = z.object({
+  params: z.object({
+    id: z.coerce.number().int().positive('TMDB ID must be a positive integer'),
+  }),
+});
+
 module.exports = {
   paginationSchema,
   slugParamSchema,
   categoryParamSchema,
   episodeIdSchema,
   homepageSchema,
+  tmdbIdParamSchema,
 };

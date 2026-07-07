@@ -545,14 +545,7 @@ export default function WatchPage() {
             <p className="text-netflix-text-2 text-sm max-w-md mb-4">
               {item?.sourceId
                 ? 'This content is from an external source that is currently unavailable. Please try again later.'
-                : selectedEpisode
-                  ? 'This episode does not have an HLS stream available yet.'
-                  : 'This content does not have an HLS stream available yet.'}
-              {!item?.sourceId && (
-                <>
-                  <br />Run <code className="text-netflix-text bg-netflix-dark-3 px-1.5 py-0.5 rounded text-xs">node server/scripts/setup-test-hls.js --all</code> to set up test streams.
-                </>
-              )}
+                : 'Stream source unavailable. A provider will be connected in a future update.'}
             </p>
             <button onClick={() => navigate(-1)} className="btn-primary">
               Go Back

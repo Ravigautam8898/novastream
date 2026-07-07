@@ -43,10 +43,15 @@ export default function ContentCard({ item, progressPercent, onDismiss, isFavori
 
   const contentType = item.contentType || 'movie';
   const slug = item.slug;
+  const tmdbId = item.tmdbId;
 
   const handleClick = () => {
     if (slug) {
+      // Standard navigation: content exists in MongoDB
       navigate(`/watch/${contentType}/${slug}`);
+    } else if (tmdbId) {
+      // TMDB-only navigation: not seeded yet, use TMDB ID
+      navigate(`/watch/${contentType}/tmdb-${tmdbId}`);
     }
   };
 

@@ -592,6 +592,72 @@ class ContentService {
     return result;
   }
 
+  // ── TMDB Detail Lookup (Navigation Bridge) ──
+
+  /**
+   * Get content details by TMDB ID.
+   * First checks MongoDB (by tmdbId field), then falls back to live TMDB API.
+   * This enables browsing TMDB-sourced items that haven't been seeded into
+   * the Content collection yet (e.g. trending items from TMDB's live feed).
+   *
+   * Does NOT require: sourceId, sourceSite, or stream availability.
+   * Metadata-only — playback resolving happens separately at PLAY click.
+   *
+   * @param {number} tmdbId - TMDB content ID
+   * @param {string} contentType - 'movie' or 'series'
+   * @returns {Promise<Object>} Normalized content object
+   */
+  static async getByTmdbId(tmdbId, contentType) {
+    // 1. Try MongoDB first (content may have been seeded)
+    const existing = await Content.findOne({ tmdbId, contentType, isActive: true }).lean();
+    if (existing) {
+      logger.debug({ tmdbId, contentType }, 'TMDB detail — found in DB');
+      return existing;
+    }
+
+    // 2. Fetch from TMDB API
+    logger.debug({ tmdbId, contentType }, 'TMDB detail — fetching live');
+
+    try {
+      let data;
+      if (contentType === 'movie') {
+        data = await TMDbService.syncMovie(tmdbId);
+      } else {
+        data = await TMDbService.syncSeries(tmdbId);
+      }
+
+      // Build a normalized detail object that matches the frontend expectations
+      const normalized = {
+        ...data,
+        _id: `tmdb-${tmdbId}`,       // Synthetic _id for frontend keying
+        slug: null,                    // No slug — not in DB
+        sourceId: null,                // No streaming source
+        sourceSite: null,
+        streams: [],
+        isActive: true,
+        isFeatured: false,
+        similarContent: [],           // Empty until seeded
+        categories: [],               // Empty until seeded
+        languages: [],                // Empty until seeded
+        // Override contentType if TMDB returned it correctly
+        contentType,
+        // For series, extract first season
+        seasons: data.seasons || [],
+        numberOfSeasons: data.numberOfSeasons || data.seasons?.length || 0,
+        numberOfEpisodes: data.numberOfEpisodes || data.seasons?.reduce((sum, s) => sum + (s.episodes?.length || 0), 0) || 0,
+      };
+
+      // Remove field that may be confusing
+      delete normalized.createdAt;
+      delete normalized.updatedAt;
+
+      return normalized;
+    } catch (err) {
+      logger.error({ tmdbErr: TMDbService.sanitizeError(err), tmdbId, contentType }, 'TMDB detail fetch failed');
+      throw ApiError.notFound(`Content with TMDB ID ${tmdbId} not found. It may not be available in TMDB.`);
+    }
+  }
+
   // ── Search ──
 
   /**

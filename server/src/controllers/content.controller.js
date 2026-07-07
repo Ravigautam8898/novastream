@@ -159,6 +159,34 @@ async function search(req, res, next) {
   }
 }
 
+/**
+ * GET /api/movies/tmdb/:id
+ * Get movie details by TMDB ID (DB-first, TMDB fallback)
+ */
+async function getMovieByTmdbId(req, res, next) {
+  try {
+    const { id } = req.validatedParams || req.params;
+    const movie = await ContentService.getByTmdbId(parseInt(id), 'movie');
+    ApiResponse.success(res, movie, 'Movie retrieved');
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/series/tmdb/:id
+ * Get series details by TMDB ID (DB-first, TMDB fallback)
+ */
+async function getSeriesByTmdbId(req, res, next) {
+  try {
+    const { id } = req.validatedParams || req.params;
+    const series = await ContentService.getByTmdbId(parseInt(id), 'series');
+    ApiResponse.success(res, series, 'Series retrieved');
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getHomepageSections,
   getMovies,
@@ -170,4 +198,6 @@ module.exports = {
   getTrending,
   getByCategory,
   search,
+  getMovieByTmdbId,
+  getSeriesByTmdbId,
 };

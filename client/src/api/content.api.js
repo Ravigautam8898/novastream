@@ -19,6 +19,27 @@ export const contentApi = {
     return data.data;
   },
 
+  /**
+   * Get movie details by TMDB ID.
+   * Checks MongoDB first, falls back to live TMDB API.
+   * For TMDB-only items that haven't been seeded into the database yet.
+   * @param {number} tmdbId - TMDB content ID
+   * @returns {Object} Normalized movie detail object
+   */
+  getMovieByTmdbId: async (tmdbId) => {
+    const { data } = await apiClient.get(`/movies/tmdb/${tmdbId}`);
+    return data.data;
+  },
+
+  /**
+   * Get series details by TMDB ID.
+   * Checks MongoDB first, falls back to live TMDB API.
+   */
+  getSeriesByTmdbId: async (tmdbId) => {
+    const { data } = await apiClient.get(`/series/tmdb/${tmdbId}`);
+    return data.data;
+  },
+
   getSeries: async ({ page = 1, limit = 20, genre, sort } = {}) => {
     const params = { page, limit };
     if (genre) params.genre = genre;

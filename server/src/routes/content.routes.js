@@ -14,6 +14,7 @@ const {
   categoryParamSchema,
   episodeIdSchema,
   homepageSchema,
+  tmdbIdParamSchema,
 } = require('../validators/content.validator');
 const contentController = require('../controllers/content.controller');
 
@@ -41,6 +42,15 @@ router.get('/movies',
   contentController.getMovies
 );
 
+// TMDB ID lookup must come BEFORE /movies/:slug so :slug doesn't catch 'tmdb/...'
+router.get('/movies/tmdb/:id',
+  authenticate,
+  requireActiveSubscription,
+  generalLimiter,
+  validate(tmdbIdParamSchema),
+  contentController.getMovieByTmdbId
+);
+
 router.get('/movies/:slug',
   authenticate,
   requireActiveSubscription,
@@ -56,6 +66,15 @@ router.get('/series',
   generalLimiter,
   validate(paginationSchema),
   contentController.getSeries
+);
+
+// TMDB ID lookup must come BEFORE /series/:slug
+router.get('/series/tmdb/:id',
+  authenticate,
+  requireActiveSubscription,
+  generalLimiter,
+  validate(tmdbIdParamSchema),
+  contentController.getSeriesByTmdbId
 );
 
 router.get('/series/:slug',

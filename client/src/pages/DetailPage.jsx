@@ -35,6 +35,8 @@ export default function DetailPage() {
   const [favToggling, setFavToggling] = useState(false);
 
   const isMovie = contentType === 'movie';
+  const isTmdbItem = slug?.startsWith('tmdb-');
+  const tmdbId = isTmdbItem ? parseInt(slug.replace('tmdb-', ''), 10) : null;
 
   // Navigate to WatchPage with episode pre-selected
   const handlePlayEpisode = useCallback((episode) => {
@@ -52,9 +54,18 @@ export default function DetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = isMovie
-        ? await contentApi.getMovieBySlug(slug)
-        : await contentApi.getSeriesBySlug(slug);
+      let data;
+      if (isTmdbItem && tmdbId) {
+        // TMDB-only item: fetch via TMDB API (DB-first, TMDB fallback)
+        data = isMovie
+          ? await contentApi.getMovieByTmdbId(tmdbId)
+          : await contentApi.getSeriesByTmdbId(tmdbId);
+      } else {
+        // Standard: content exists in MongoDB
+        data = isMovie
+          ? await contentApi.getMovieBySlug(slug)
+          : await contentApi.getSeriesBySlug(slug);
+      }
       setItem(data);
       // Auto-select first season for series
       if (!isMovie && data.seasons && data.seasons.length > 0) {
@@ -69,16 +80,19 @@ export default function DetailPage() {
       setLoading(false);
 
       // Check favorite state (non-blocking — runs after page renders)
-      favoritesApi.checkFavorite(data._id).then((favResult) => {
-        setIsFavorited(favResult.isFavorited);
-      }).catch(() => {
-        // Favorites check failed — non-critical
-      });
+      // Skip for TMDB-only items (no real _id in DB)
+      if (!isTmdbItem && data._id) {
+        favoritesApi.checkFavorite(data._id).then((favResult) => {
+          setIsFavorited(favResult.isFavorited);
+        }).catch(() => {
+          // Favorites check failed — non-critical
+        });
+      }
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to load details');
       setLoading(false);
     }
-  }, [contentType, slug]);
+  }, [contentType, slug, isTmdbItem, tmdbId, isMovie]);
 
   const handleToggleFavorite = useCallback(async () => {
     if (!item?._id || favToggling) return;

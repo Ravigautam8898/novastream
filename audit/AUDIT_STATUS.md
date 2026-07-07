@@ -114,6 +114,7 @@ NovaStream currently has **three independent governance tracks** that run in par
 |------|-----|-------|--------|
 | 2026-07-07 | Developer Setup Baseline — Added `postinstall` to auto-install server/client/CLI deps on `npm install` | `package.json`, `README.md` | ✅ Deployed |
 | 2026-07-07 | Pre-C2 Stability Hardening — Exponential backoff + jitter for MongoDB retry, failure classification (auth vs network), circuit-breaker error logging, clean 4xx error logging (no stack traces), runtime disconnect tracking, health endpoint enhanced | `errorHandler.middleware.js`, `database.js`, `health.routes.js` | ✅ Deployed |
+| 2026-07-07 | Pre-C2 Metadata Navigation Bridge — TMDB detail lookup (DB-first, TMDB fallback), TMDB ID routes `/movies/tmdb/:id` + `/series/tmdb/:id`, ContentCard navigates with `tmdbId` when `slug` missing, DetailPage detects `tmdb-` prefix, removed confusing `setup-test-hls.js` hint | `content.service.js`, `content.controller.js`, `content.routes.js`, `content.validator.js`, `content.api.js`, `ContentCard.jsx`, `DetailPage.jsx`, `WatchPage.jsx` | ✅ Deployed |
 
 ---
 

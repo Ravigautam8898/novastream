@@ -1,39 +1,62 @@
-# Dependencies
+# ── Test / Temporary Clones ──
+testclone/
+testclone*/
+
+# ── Dependencies ──
 node_modules/
 client/node_modules/
 server/node_modules/
 cli/node_modules/
 
-# Build output
-client/dist/
-
-# Environment
+# ── Environment ──
 .env
 .env.local
+.env.production
+.env.development
 
-# Logs
+# ── Runtime Uploads ──
+server/uploads/
+uploads/
+
+# ── Build Output ──
+client/dist/
+dist/
+build/
+
+# ── Logs ──
 logs/
 *.log
+npm-debug.log*
 
-# Personal notes
-nova errors observed
-
-# OS
+# ── OS Files ──
 .DS_Store
 Thumbs.db
-
-# IDE
-.idea/
-.vscode/
+Desktop.ini
 *.swp
 *.swo
 
-# Runtime
+# ── IDE ──
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# ── Runtime ──
 .pm2/
 *.pid
 *.seed
 
-# Misc
+# ── Windows Reserved Names ──
+nul
+NUL
+nul.*
+NUL.*
+
+# ── Personal Notes ──
+nova errors observed
+
+# ── Misc ──
 *.tgz
 *.zip
-
+*.tar.gz
