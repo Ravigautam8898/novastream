@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { contentApi } from '../../api/content.api';
 import { TMDB_IMAGE_BASE } from '../../config/images';
 
 /**
@@ -44,14 +45,27 @@ export default function ContentCard({ item, progressPercent, onDismiss, isFavori
   const contentType = item.contentType || 'movie';
   const slug = item.slug;
   const tmdbId = item.tmdbId;
+  const [registering, setRegistering] = useState(false);
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (slug) {
-      // Standard navigation: content exists in MongoDB
+      // Standard navigation: content has Nova slug
       navigate(`/watch/${contentType}/${slug}`);
-    } else if (tmdbId) {
-      // TMDB-only navigation: not seeded yet, use TMDB ID
-      navigate(`/watch/${contentType}/tmdb-${tmdbId}`);
+    } else if (tmdbId && !registering) {
+      // C5c: TMDB-only item — register via backend, get Nova slug, then navigate
+      setRegistering(true);
+      try {
+        const content = contentType === 'movie'
+          ? await contentApi.getMovieByTmdbId(tmdbId)
+          : await contentApi.getSeriesByTmdbId(tmdbId);
+        if (content?.slug) {
+          navigate(`/watch/${contentType}/${content.slug}`);
+        }
+      } catch (err) {
+        console.warn('Failed to register content:', err.message);
+      } finally {
+        setRegistering(false);
+      }
     }
   };
 

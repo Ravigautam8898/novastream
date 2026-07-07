@@ -1015,7 +1015,26 @@ The legacy single `sourceId`/`sourceSite` must be replaced with a structured pro
 - ✅ Test C: Existing YupFlix/CastleTV content — providers[] untouched, playback works
 - ✅ Test D: Series — seasons/episodes correct, playback works
 
-- **C5c (pending):** Remove tmdb-* navigation bridge
+- [x] **C5c Status:** ✅ COMPLETE — TMDB Navigation Bridge Removal
+- ContentCard: TMDB-only items now register via API, get Nova slug, navigate by slug
+- DetailPage/WatchPage: removed all `isTmdbItem`/`tmdb-` detection — always use slug-based APIs
+- Backend TMDB routes preserved as internal registration API (used by ContentCard)
+- Synthetic `_id: tmdb-{id}` removed (C5b)
+- All URLs are now slug-based: `/watch/movie/{nova-slug}` and `/watch/series/{nova-slug}`
+
+**C5c validation (all pass):**
+- ✅ A) Fresh trending movie — real _id + slug created via registration
+- ✅ B) Refresh via slug — works
+- ✅ C) Search results — items have slug, navigate correctly
+- ✅ D) Existing YupFlix/CastleTV — providers untouched, playback works
+- ✅ E) Series seasons — correct
+- ✅ Identity audit — 0 duplicates, 0 missing slugs, 0 orphan IDs
+
+**C5c files modified:**
+- `client/src/components/content/ContentCard.jsx` — async registration for TMDB-only items
+- `client/src/pages/DetailPage.jsx` — removed tmdb- detection
+- `client/src/pages/WatchPage.jsx` — removed tmdb- detection
+
 - **C5d (pending):** UI Source Selector
 - **C5e (pending):** Homepage Provider Merge
 
