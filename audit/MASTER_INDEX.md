@@ -20,7 +20,7 @@
 | 08 | Production | Docker, CI/CD, monitoring, logging, deployment config | 🔒 FROZEN ✅ |
 | 09 | Scalability | Architecture, provider abstraction, horizontal scaling | 🟡 BATCH A1 CERTIFIED (SC-014+SC-015) |
 | 10 | Final Certification | End-to-end verification, security audit, readiness check | PENDING |
-| C | Dynamic Provider Plugin System | ContentRegistry, BaseProvider, ProviderManager, ProviderRegistry, ScraperQueue, YupFlix provider | 🔒 FROZEN (C1+C2+C3) |
+| C | Dynamic Provider Plugin System | ContentRegistry, BaseProvider, ProviderManager, ProviderRegistry, ScraperQueue, YupFlix/CastleTV providers | 🔒 FROZEN (C1+C2+C3+C4) |
 
 ---
 

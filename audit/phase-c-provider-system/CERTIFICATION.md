@@ -1,12 +1,13 @@
 # Phase C — Dynamic Provider Plugin System — Certification
 
 > **Phase:** C — Dynamic Provider Plugin System
-> **Status:** 🔒 C1+C2+C3 FROZEN — C4 Active
-> **Implementation:** C1 + C2 + C3 Complete
+> **Status:** 🔒 C1+C2+C3+C4 FROZEN
+> **Implementation:** C1 + C2 + C3 + C4 Complete
 > **Phase C1:** Completed July 6, 2026
 > **Phase C2:** Completed July 7, 2026
 > **Phase C3:** Completed July 7, 2026
-> **Next Phase:** C4 — CastleTV Integration
+> **Phase C4:** Completed July 7, 2026
+> **Next Phase:** C5 — Extractors (if needed)
 > **Last Updated:** July 7, 2026
 
 ---
@@ -21,14 +22,19 @@
 | **Closed** | 0 |
 | **Rejected** | 0 |
 | **Won't Fix** | 0 |
-| **Status** | 🟢 C1 🔒 FROZEN · C2 🔒 FROZEN · C3 🔒 FROZEN |
+| **Status** | 🟢 C1 🔒 FROZEN · C2 🔒 FROZEN · C3 🔒 FROZEN · C4 🔒 FROZEN |
 | **C1 Start Date** | 2026-07-06 |
 | **C1 Freeze Date** | 2026-07-06 |
 | **C2 Implementation Date** | 2026-07-07 |
 | **C2 Freeze Date** | 2026-07-07 |
+| **C3 Implementation Date** | 2026-07-07 |
+| **C3 Freeze Date** | 2026-07-07 |
+| **C4 Implementation Date** | 2026-07-07 |
+| **C4 Freeze Date** | 2026-07-07 |
 | **Decisions Frozen** | C-001 through C-013 |
 | **C2 Implementation** | ✅ CERTIFIED 🔒 FROZEN |
 | **C3 Implementation** | ✅ CERTIFIED 🔒 FROZEN |
+| **C4 Implementation** | ✅ CERTIFIED 🔒 FROZEN |
 
 ---
 
@@ -256,7 +262,42 @@ All 12 decisions (C-001 through C-011, C-013) are frozen as the baseline. Future
 | Template skip | ✅ isTemplate:true prevents registration |
 | All 52 tests | ✅ Pass, zero regressions |
 
-### Next Phase: C4 — CastleTV Integration
-- Create CastleTV provider plugin
-- Wire frontend expired stream recovery hooks
-- Remove tmdb- prefix navigation dependency
+### C4 — Multi-Provider Integration ✅ Complete (2026-07-07)
+
+| Task | Status |
+|------|--------|
+| C4a: Create CastleTV provider with AES/CBC crypto, API endpoints, quality mapping | ✅ Done |
+| C4b: Multi-provider fallback — try providers array content mapping until one succeeds | ✅ Done |
+| C4c: Provider contract compatibility — providerData, full mapping passthrough, docs | ✅ Done |
+| C4a search() fixes: _classifyType (numeric movieType), publishTime→year extraction | ✅ Done |
+| C4a _apiGet() User-Agent fix: okhttp/4.11.0 per Python reference | ✅ Done |
+| C4a getStreams() episodeId fix: movies need separate episode ID from movie ID | ✅ Done |
+| C4a ProviderManager static property access bug (p.provider.constructor.metadata.id) | ✅ Done |
+| Provider privacy: *.provider.js gitignored, only example.provider.js tracked | ✅ Done |
+| Mapping tool: map-provider-content.js — generic search+confidence content mapper | ✅ Done |
+| Provider conversion guide: APK→NovaStream workflow documented | ✅ Done |
+
+### C4 Certification ✅
+
+| Validation | Result |
+|------------|--------|
+| CastleTV direct playback | ✅ Stream URL returned |
+| YupFlix playback | ✅ Stream URL returned |
+| Provider fallback (YupFlix fail → CastleTV success) | ✅ Fallback works across providers |
+| Cache HIT | ✅ Cache returns cached URL |
+| Refresh | ✅ Cache bypass works |
+| providerData compatibility | ✅ Passed via full mapping object |
+| Provider privacy | ✅ Only example.provider.js tracked in git |
+| All 52 tests | ✅ Pass, zero regressions |
+
+### Rules Frozen (C4c)
+
+1. ProviderManager never contains provider-specific logic (routing only)
+2. Providers own their own IDs
+3. `providerContentId` = simple primary identifier
+4. `providerData` = provider-specific data (opaque to ProviderManager)
+5. All future decoded APK providers must follow PROVIDER_DEVELOPMENT.md
+
+### Next Phase: C5 — Extractors (if needed)
+- Extract video host resolvers from providers
+- ExtractorManager dispatch system
