@@ -264,6 +264,17 @@ async function startServer() {
         }
       }
 
+      // Discover and register metadata providers (after DB is connected)
+      if (config.server.nodeEnv !== 'test') {
+        try {
+          const MetadataManager = require('./metadata/MetadataManager');
+          const count = await MetadataManager.discoverProviders();
+          logger.info({ count }, 'Metadata provider discovery complete');
+        } catch (err) {
+          logger.warn({ err }, 'Failed to discover metadata providers (non-fatal)');
+        }
+      }
+
       // Start sync scheduler (after DB is connected)
       if (config.server.nodeEnv !== 'test') {
       try {

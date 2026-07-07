@@ -80,6 +80,23 @@ const contentSchema = new mongoose.Schema({
   sourceId: { type: String, index: true },   // External content ID (e.g., from primary source)
   sourceSite: { type: String },              // Source identifier for multi-source support
 
+  // Metadata Sources (Track C5 — replaces reliance on tmdbId alone)
+  // Maps identity provider names to their IDs and sync status.
+  // Enables multi-source identity without adding top-level fields for each provider.
+  // tmdbId/imdbId top-level fields remain for backward compatibility.
+  metadataSources: {
+    type: Map,
+    of: new mongoose.Schema({
+      id: { type: String, required: true },  // Provider's content ID (stringified)
+      lastSync: { type: Date, default: Date.now },  // When metadata was last synced
+    }, { _id: false }),
+    default: {},
+  },
+
+  // External Links
+  homepage: { type: String },
+  imdbId: { type: String },
+
   // Provider Mappings (Track C2 — replaces legacy sourceId/sourceSite)
   // Allows multiple streaming providers per content item with confidence scoring.
   providers: [{

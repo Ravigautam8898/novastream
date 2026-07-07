@@ -24,18 +24,41 @@ class ContentRegistry {
    * Lookup content by one or more identity identifiers.
    * Returns the first match found, searching in priority order.
    *
+   * Priority order (C5):
+   *   1. metadataSources.{providerName}.id exact match (multi-provider identity — C5)
+   *   2. tmdbId exact match (legacy — backward compatible)
+   *   3. imdbId exact match (legacy — backward compatible)
+   *   4. title + year + contentType (high confidence fuzzy)
+   *
    * @param {Object} identifiers
    * @param {number} [identifiers.tmdbId] - TMDB content ID
    * @param {string} [identifiers.imdbId] - IMDb content ID
    * @param {string} [identifiers.title] - Content title (for title+year+type match)
    * @param {number} [identifiers.year] - Release year
    * @param {string} [identifiers.contentType] - 'movie' or 'series'
+   * @param {Object} [identifiers.metadataSource] - Multi-provider identity source
+   * @param {string} [identifiers.metadataSource.name] - Source name (e.g. 'tmdb', 'imdb', 'trakt')
+   * @param {string} [identifiers.metadataSource.id] - Source content ID
    * @returns {Promise<Object|null>} Content document or null
    */
   static async lookup(identifiers) {
-    const { tmdbId, imdbId, title, year, contentType } = identifiers;
+    const { tmdbId, imdbId, title, year, contentType, metadataSource } = identifiers;
 
-    // Priority 1: tmdbId exact match (strongest identity signal)
+    // Priority 1: metadataSources.{name}.id exact match (C5 multi-provider identity)
+    if (metadataSource && metadataSource.name && metadataSource.id) {
+      const query = {
+        [`metadataSources.${metadataSource.name}.id`]: String(metadataSource.id),
+        ...(contentType ? { contentType } : {}),
+      };
+      const byMetadataSource = await Content.findOne(query).lean();
+      if (byMetadataSource) {
+        logger.debug({ sourceName: metadataSource.name, sourceId: metadataSource.id, found: byMetadataSource.slug },
+          'ContentRegistry: matched by metadataSources');
+        return byMetadataSource;
+      }
+    }
+
+    // Priority 2: tmdbId exact match (legacy — backward compatible)
     if (tmdbId) {
       const byTmdb = await Content.findOne({
         tmdbId,
@@ -47,7 +70,7 @@ class ContentRegistry {
       }
     }
 
-    // Priority 2: imdbId exact match
+    // Priority 3: imdbId exact match
     if (imdbId) {
       const byImdb = await Content.findOne({ imdbId }).lean();
       if (byImdb) {
@@ -113,14 +136,18 @@ class ContentRegistry {
    *
    * @param {Object} params
    * @param {Object} params.identity - Identity identifiers (tmdbId, imdbId)
+   * @param {Object} [params.identity.metadataSource] - Multi-source identity (C5)
+   * @param {string} params.identity.metadataSource.name - Source name
+   * @param {string} params.identity.metadataSource.id - Source content ID
    * @param {string} params.title - Content title
    * @param {string} params.contentType - 'movie' or 'series'
    * @param {Object} [params.metadata] - Additional metadata (overview, posterPath, etc.)
    * @returns {Promise<Object>} The created Content document
    */
   static async register({ identity, title, contentType, metadata = {} }) {
-    // Check if already registered
+    // Check if already registered (check metadataSources first for C5 multi-source identity)
     const existing = await this.lookup({
+      metadataSource: identity.metadataSource,
       tmdbId: identity.tmdbId,
       imdbId: identity.imdbId,
       title,
@@ -140,6 +167,15 @@ class ContentRegistry {
     const slugExists = await Content.findOne({ slug });
     const finalSlug = slugExists ? Content.generateSlug(title) : slug;
 
+    // Build metadataSources from identity
+    const metadataSources = {};
+    if (identity.metadataSource && identity.metadataSource.name) {
+      metadataSources[identity.metadataSource.name] = {
+        id: String(identity.metadataSource.id),
+        lastSync: new Date(),
+      };
+    }
+
     // Build the content document
     const contentData = {
       slug: finalSlug,
@@ -147,6 +183,7 @@ class ContentRegistry {
       contentType,
       tmdbId: identity.tmdbId || null,
       imdbId: identity.imdbId || null,
+      metadataSources: Object.keys(metadataSources).length > 0 ? metadataSources : undefined,
       originalTitle: metadata.originalTitle || title,
       overview: metadata.overview || '',
       posterPath: metadata.posterPath || null,
@@ -171,9 +208,74 @@ class ContentRegistry {
       title,
       contentType,
       tmdbId: identity.tmdbId,
+      metadataSource: identity.metadataSource,
     }, 'ContentRegistry: new content registered');
 
     return content.toObject();
+  }
+
+  /**
+   * Register or update content. If content already exists by identity,
+   * this will merge new metadata sources and update metadata fields.
+   * If it doesn't exist, creates a new entry.
+   *
+   * C5a: This enables content to accumulate metadata sources over time
+   * without duplication. For example, content discovered via Trakt can
+   * later be enriched with TMDB metadata without creating a duplicate.
+   *
+   * @param {Object} params - Same as register()
+   * @returns {Promise<Object>} The existing or created Content document
+   */
+  static async registerOrUpdate({ identity, title, contentType, metadata = {} }) {
+    // Try to find existing content
+    const existing = await this.lookup({
+      metadataSource: identity.metadataSource,
+      tmdbId: identity.tmdbId,
+      imdbId: identity.imdbId,
+      title,
+      contentType,
+    });
+
+    if (existing) {
+      // Content exists — merge new metadata source if provided
+      if (identity.metadataSource && identity.metadataSource.name) {
+        const sourceName = identity.metadataSource.name;
+        const existingSources = existing.metadataSources || {};
+
+        // Only update if this source isn't already recorded
+        if (!existingSources[sourceName] || existingSources[sourceName].id !== String(identity.metadataSource.id)) {
+          await Content.findByIdAndUpdate(existing._id, {
+            $set: {
+              [`metadataSources.${sourceName}`]: {
+                id: String(identity.metadataSource.id),
+                lastSync: new Date(),
+              },
+            },
+          });
+          logger.debug({ slug: existing.slug, sourceName, sourceId: identity.metadataSource.id },
+            'ContentRegistry: metadata source merged into existing content');
+        }
+
+        // If the content has tmdbId metadataSource but no top-level tmdbId, sync it
+        if (sourceName === 'tmdb' && !existing.tmdbId) {
+          await Content.findByIdAndUpdate(existing._id, {
+            $set: { tmdbId: parseInt(identity.metadataSource.id) || identity.metadataSource.id },
+          });
+        }
+      }
+
+      // Update popularity if provided (keep content fresh in browse results)
+      if (metadata.popularity && metadata.popularity !== existing.popularity) {
+        await Content.findByIdAndUpdate(existing._id, {
+          $set: { popularity: metadata.popularity },
+        });
+      }
+
+      return existing;
+    }
+
+    // Not found — register new
+    return this.register({ identity, title, contentType, metadata });
   }
 
   /**

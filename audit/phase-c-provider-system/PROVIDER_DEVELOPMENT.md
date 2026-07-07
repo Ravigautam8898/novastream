@@ -9,6 +9,11 @@
 > They only resolve streams for existing content identity.
 > Content creation is the responsibility of ContentRegistry and metadata
 > providers (TMDB). See `FINDINGS.md` C-013 for full details.
+>
+> **C5 Architecture Rule:** Metadata providers (discover/search/details) are COMPLETELY
+> separate from stream providers (playback). They live in `server/src/metadata/sources/`,
+> NOT in `server/src/providers/sources/`. Metadata providers never return stream URLs.
+> Stream providers never create catalog entries. See [Metadata Provider vs Stream Provider](#15-metadata-provider-vs-stream-provider).
 
 ---
 
@@ -28,6 +33,7 @@
 12. [Performance Rules](#12-performance-rules)
 13. [Provider Acceptance Checklist](#13-provider-acceptance-checklist)
 14. [Example Source References](#14-example-source-references)
+15. [Metadata Provider vs Stream Provider](#15-metadata-provider-vs-stream-provider)
 
 ---
 
@@ -1253,3 +1259,97 @@ Maps to NovaStream as:
 > This document should allow any AI agent or developer to take a cracked/decoded provider (APK, traffic capture, WaveStream plugin, Python code) and convert it into a NovaStream provider plugin without touching core application code.
 >
 > When adding a new provider: copy an existing provider file, modify it for the new source, run through the acceptance checklist (Section 12), and register it with `ProviderRegistry`. No changes to `ProviderManager.js`, `BaseProvider.js`, or any other core file are needed.
+
+---
+
+## 15. Metadata Provider vs Stream Provider
+
+### The Two Systems Are Completely Independent
+
+NovaStream has **two separate provider systems** that must NEVER be confused:
+
+| Aspect | Stream Providers (C1-C4) | Metadata Providers (C5) |
+|--------|-------------------------|------------------------|
+| **Directory** | `server/src/providers/sources/` | `server/src/metadata/sources/` |
+| **Base class** | `BaseProvider` | `BaseMetadataProvider` |
+| **Manager** | `ProviderManager` | `MetadataManager` |
+| **Purpose** | Resolve playback URLs | Discover and describe content |
+| **Returns** | `[{url, quality, headers}]` | `{title, overview, cast, artwork}` |
+| **When called** | On PLAY click | On browse, search, detail view |
+| **Registration** | `ProviderManager.discoverProviders()` | `MetadataManager.discoverProviders()` |
+| **Frozen** | C1-C4 🔒 FROZEN | C5a 🟡 ACTIVE |
+
+### Stream Provider Rules (C1-C4 Frozen)
+
+- Extends `BaseProvider`
+- Lives in `server/src/providers/sources/`
+- Implements `getStreams(mapping, options)` → stream URLs
+- NEVER creates content catalog entries
+- NEVER queries for discovery (trending, search, categories)
+- Only called when user presses PLAY
+
+### Metadata Provider Rules (C5 Active)
+
+- Extends `BaseMetadataProvider`
+- Lives in `server/src/metadata/sources/`
+- Implements `getTrending()`, `search()`, `getDetails()` → content metadata
+- NEVER returns stream URLs
+- NEVER attached to ProviderManager
+- Called on browse, search, and detail views
+- Registered with MetadataManager at startup
+
+### Why Separate?
+
+1. **APK-decoded providers** (CastleTV, BiliBili) embed their own search/discovery APIs purely for in-app navigation. These are NOT general-purpose metadata sources like TMDB. Using them for catalog discovery would produce inconsistent results.
+
+2. **Metadata quality** — TMDB (and future IMDb/Trakt) provide authoritative metadata (cast, ratings, artwork, synopsis). Stream providers provide availability data. Mixing them creates identity contamination (C-012).
+
+3. **OTT lifecycle** — Browsing/tending/search should work even when ALL stream providers are offline. The homepage should never depend on stream provider availability.
+
+4. **Scale** — Metadata providers are called heavily (every homepage load, every search). Stream providers are called on PLAY only. Different performance characteristics require separate management.
+
+### Architecture Diagram
+
+```
+                    ┌──────────────────────┐
+                    │   NovaStream Core     │
+                    └──────────┬───────────┘
+                               │
+               ┌───────────────┴───────────────┐
+               │                               │
+               ▼                               ▼
+    ┌──────────────────┐           ┌──────────────────────┐
+    │  MetadataManager  │           │    ProviderManager    │
+    │  (C5 — ACTIVE)    │           │  (C1-C4 — FROZEN)    │
+    ├──────────────────┤           ├──────────────────────┤
+    │ tmdb.metadata.js │           │ yupflix.provider.js  │
+    │ trakt.metadata.js│           │ castletv.provider.js │
+    │ (future)         │           │ (future scraper)     │
+    └──────────────────┘           └──────────────────────┘
+               │                               │
+               ▼                               ▼
+    ┌──────────────────┐           ┌──────────────────────┐
+    │  ContentService   │           │   _streamCache (TTL) │
+    │  (DB + provider)  │           └──────────────────────┘
+    ├──────────────────┤
+    │  ContentRegistry  │
+    │  (slug + identity)│
+    └──────────────────┘
+```
+
+### Examples
+
+**What TMDB (metadata provider) does:**
+```javascript
+// Returns metadata — NO streams
+{ title: "Inception", overview: "...", posterPath: "/abc.jpg",
+  cast: [{ name: "Leonardo DiCaprio" }], genres: [{ name: "Sci-Fi" }] }
+```
+
+**What CastleTV (stream provider) does:**
+```javascript
+// Returns stream URLs — NO metadata
+[{ url: "https://cdn.../master.m3u8", quality: "1080p", type: "hls" }]
+```
+
+**Never mix the two.**

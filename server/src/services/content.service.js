@@ -8,8 +8,13 @@ const mongoose = require('mongoose');
 const Content = require('../models/Content.model');
 const Season = require('../models/Season.model');
 const Episode = require('../models/Episode.model');
+const MetadataManager = require('../metadata/MetadataManager');
 const TMDbService = require('./tmdb.service');
 const ContentSourceService = require('./content-source.service');
+
+// C5: MetadataManager replaces direct TMDbService calls in homepage, trending,
+//     search, and detail fetches. TMDbService is still imported for backward
+//     compatibility with seed scripts and the TMDB metadata adapter.
 const logger = require('../config/logger');
 const ApiError = require('../utils/ApiError');
 const MemoryCache = require('../utils/cache');
@@ -115,14 +120,14 @@ class ContentService {
         layout: 'hero',
       });
     } else {
-      // TMDB fallback — get popular movies for hero
+      // MetadataManager fallback — get trending from best metadata provider
       try {
-        const trendingMovies = await TMDbService.getTrending(1);
+        const trendingItems = await MetadataManager.getTrending({ page: 1 });
         sections.push({
           id: 'trending',
           title: 'Trending Now',
           type: 'trending',
-          items: trendingMovies.slice(0, 10),
+          items: trendingItems.slice(0, 10),
           layout: 'hero',
         });
         trendingAdded = true;
@@ -134,7 +139,7 @@ class ContentService {
     // Section 2: Trending Now (skip if already added as hero)
     if (!trendingAdded) {
       try {
-        const trending = await TMDbService.getTrending(1);
+        const trending = await MetadataManager.getTrending({ page: 1 });
         sections.push({
           id: 'trending',
           title: 'Trending Now',
@@ -143,7 +148,7 @@ class ContentService {
           layout: 'row',
         });
       } catch (err) {
-        logger.warn({ err }, 'Failed to fetch trending from TMDB');
+        logger.warn({ err }, 'Failed to fetch trending from metadata providers');
       }
     }
 
@@ -226,10 +231,10 @@ class ContentService {
 
     // If DB is empty, fall back to TMDB
     if (total === 0) {
-      logger.info('DB empty for movies — fetching from TMDB');
-      const tmdbMovies = await TMDbService.getTrending(1);
+      logger.info('DB empty for movies — fetching from metadata providers');
+      const trendingItems = await MetadataManager.getTrending({ page: 1 });
       result = {
-        items: tmdbMovies.filter(m => m.contentType === 'movie').slice(0, limit),
+        items: trendingItems.filter(m => m.contentType === 'movie').slice(0, limit),
         pagination: { page, limit, total: 0, totalPages: 1 },
         source: 'tmdb',
       };
@@ -318,10 +323,10 @@ class ContentService {
     let result;
 
     if (total === 0) {
-      logger.info('DB empty for series — fetching from TMDB');
-      const tmdbSeries = await TMDbService.getTrending(1);
+      logger.info('DB empty for series — fetching from metadata providers');
+      const trendingItems = await MetadataManager.getTrending({ page: 1 });
       result = {
-        items: tmdbSeries.filter(m => m.contentType === 'series').slice(0, limit),
+        items: trendingItems.filter(m => m.contentType === 'series').slice(0, limit),
         pagination: { page, limit, total: 0, totalPages: 1 },
         source: 'tmdb',
       };
@@ -519,15 +524,15 @@ class ContentService {
     logger.debug({ page }, 'Fetching trending content');
 
     try {
-      const trending = await TMDbService.getTrending(page);
+      const trending = await MetadataManager.getTrending({ page });
       return {
         items: trending.slice(0, limit),
         pagination: { page, limit, total: 0, totalPages: 1 },
         source: 'tmdb',
       };
     } catch (err) {
-      // TMDB fallback: return most popular from DB
-      logger.warn({ err }, 'TMDB trending failed, using DB fallback');
+      // Metadata provider fallback: return most popular from DB
+      logger.warn({ err }, 'Metadata providers trending failed, using DB fallback');
       const items = await Content.find({ isActive: true })
         .sort({ popularity: -1 })
         .skip((page - 1) * limit)
@@ -621,18 +626,11 @@ class ContentService {
     if (existing) {
       logger.debug({ tmdbId, contentType }, 'TMDB detail — found in DB');
       return existing;
-    }
-
-    // 2. Fetch from TMDB API
-    logger.debug({ tmdbId, contentType }, 'TMDB detail — fetching live');
+    }      // 2. Fetch from MetadataManager (uses TMDB provider by default)
+    logger.debug({ tmdbId, contentType }, 'TMDB detail — fetching live via MetadataManager');
 
     try {
-      let data;
-      if (contentType === 'movie') {
-        data = await TMDbService.syncMovie(tmdbId);
-      } else {
-        data = await TMDbService.syncSeries(tmdbId);
-      }
+      const data = await MetadataManager.getDetails(String(tmdbId), contentType);
 
       // Build a normalized detail object that matches the frontend expectations
       const normalized = {
@@ -661,8 +659,8 @@ class ContentService {
 
       return normalized;
     } catch (err) {
-      logger.error({ tmdbErr: TMDbService.sanitizeError(err), tmdbId, contentType }, 'TMDB detail fetch failed');
-      throw ApiError.notFound(`Content with TMDB ID ${tmdbId} not found. It may not be available in TMDB.`);
+      logger.error({ tmdbErr: err?.message || err, tmdbId, contentType }, 'Metadata detail fetch failed');
+      throw ApiError.notFound(`Content with TMDB ID ${tmdbId} not found. It may not be available.`);
     }
   }
 
@@ -704,9 +702,9 @@ class ContentService {
       };
     }
 
-    // TMDB fallback
+    // Metadata provider fallback
     try {
-      const results = await TMDbService.search(q, page);
+      const results = await MetadataManager.search(q, { page });
       const items = [
         ...(results.movies || []),
         ...(results.series || []),

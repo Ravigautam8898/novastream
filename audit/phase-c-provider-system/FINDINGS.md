@@ -846,6 +846,7 @@ Provider sync discovers: "Notes from the Last Row" (external ID: abc123)
 - C2: TMDB bridge routes (`/movies/tmdb/:id`) redirect to the canonical slug if the content is registered
 - C2: Provider-only titles discovered during sync follow the confidence-based flow above
 - C3: Remove `tmdb-` prefix URLs entirely
+- C5: Add metadataSources identity model for multi-provider metadata support
 
 **Impact on providers:**
 - Provider plugins do NOT create movies/shows
@@ -958,66 +959,58 @@ The legacy single `sourceId`/`sourceSite` must be replaced with a structured pro
 ## Migration Plan — Implementation Phases
 
 ### Phase C1 — Documentation Freeze
-- [ ] **Status:** ✅ COMPLETE (this document)
-- [ ] Architecture proposal reviewed and approved
-- [ ] Governance documents created
-- [ ] Provider Developer SDK Guide created (`PROVIDER_DEVELOPMENT.md`)
+- [x] **Status:** ✅ COMPLETE
 
 ### Phase C2 — Provider Framework
+- [x] **Status:** ✅ COMPLETE
+
+### Phase C3 — YupFlix Migration
+- [x] **Status:** ✅ COMPLETE
+
+### Phase C4 — CastleTV + Multi-Provider Fallback
+- [x] **Status:** ✅ COMPLETE
+
+### Phase C5 — Metadata Provider System
+- [x] **C5a Status:** ✅ COMPLETE — Metadata Provider Framework
+- BaseMetadataProvider, MetadataManager, tmdb.metadata adapter
+- metadataSources identity model (Map-based, extensible)
+- ContentService delegates to MetadataManager for trending/search/details
+- Metadata providers live in `server/src/metadata/sources/` (separate from stream providers)
+- OTT-style lifecycle: no auto-register on browse, only on detail/playback
+- **C5b (pending):** Auto-register on discovery, `registerOrUpdate()`
+- **C5c (pending):** Remove tmdb-* navigation bridge
+- **C5d (pending):** UI Source Selector
+- **C5e (pending):** Homepage Provider Merge
+
+**Files created:**
+- `server/src/metadata/BaseMetadataProvider.js`
+- `server/src/metadata/MetadataManager.js`
+- `server/src/metadata/sources/tmdb.metadata.js`
+
+**Files modified:**
+- `server/src/models/Content.model.js` — added `metadataSources` Map
+- `server/src/providers/ContentRegistry.js` — added `registerOrUpdate()`, metadataSources lookup
+- `server/src/services/content.service.js` — replaced TMDbService with MetadataManager
+- `server/src/app.js` — MetadataManager initialization at startup
+
+### Phase C6 — UI Source Selector (Future)
 - [ ] **Status:** ❌ NOT STARTED
-- [ ] Create `providers/BaseProvider.js` — abstract class with interface contract
-- [ ] Create `providers/ProviderRegistry.js` — database-backed config
-- [ ] Create `providers/ProviderManager.js` — discovery, loading, priority, fallback chain
-- [ ] No behavior change — existing streaming continues to work
+- Frontend component for provider selection
+- Auto mode default, manual override optional
 
-**Files to create:**
-- `server/src/providers/BaseProvider.js`
-- `server/src/providers/ProviderRegistry.js`
-- `server/src/providers/ProviderManager.js`
-
-### Phase C3 — Migrate YupFlix
+### Phase C7 — Extractor System (Future)
 - [ ] **Status:** ❌ NOT STARTED
-- [ ] Move current YupFlix logic from `ContentSourceService.SOURCES.primary` → `providers/sources/yupflix.provider.js`
-- [ ] Refactor `ContentSourceService` to delegate to `ProviderManager`
-- [ ] Existing streams must continue working — zero regression
+- ExtractorManager for shared video host resolvers
+- streamwish, filemoon extractors
 
-**Files to create:**
-- `server/src/providers/sources/yupflix.provider.js`
-
-**Files to modify:**
-- `server/src/services/content-source.service.js` — delegate to ProviderManager
-
-### Phase C4 — Add CastleTV Provider
+### Phase C8 — Provider Admin Management (Future)
 - [ ] **Status:** ❌ NOT STARTED
-- [ ] Create `providers/sources/castle.provider.js` from workable Python code
-- [ ] Reference: `workable_providers/castletv/provider.py`
+- Admin API endpoints: list, enable, disable, update priority
+- CLI commands
 
-**Files to create:**
-- `server/src/providers/sources/castle.provider.js`
-
-### Phase C5 — Add Extractor System
+### Phase C9 — Remote Update Support (Future)
 - [ ] **Status:** ❌ NOT STARTED
-- [ ] Create `providers/ExtractorManager.js`
-- [ ] Create first extractors (streamwish, filemoon)
-- [ ] Wire into provider resolution flow
-
-**Files to create:**
-- `server/src/providers/ExtractorManager.js`
-- `server/src/providers/extractors/streamwish.extractor.js`
-- `server/src/providers/extractors/filemoon.extractor.js`
-
-### Phase C6 — Provider Admin Management
-- [ ] **Status:** ❌ NOT STARTED
-- [ ] Admin API endpoints: list, enable, disable, update priority
-- [ ] CLI commands: `novactl provider list`, `novactl provider status`
-- [ ] Frontend admin panel for provider management
-
-### Phase C7 — Remote Update Support (Future)
-- [ ] **Status:** ❌ NOT STARTED
-- [ ] Remote provider registry manifest
-- [ ] `novactl provider update <id>` command
-- [ ] Version checking and update notifications
-- [ ] No automatic execution of remote code
+- Remote provider registry manifest
 
 ---
 
