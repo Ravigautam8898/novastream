@@ -287,19 +287,30 @@ async function startServer() {
       });
     }, 3000); // Wait 3s after server start to avoid competing with sync scripts
 
-    // Graceful shutdown
+    // ── Graceful Shutdown ──
+    // Centralized: stop sync scheduler, close HTTP server, close DB, then exit.
+    // Signal handlers from database.js were removed — all shutdown logic is here.
     const shutdown = async (signal) => {
       logger.info({ signal }, 'Shutdown signal received');
+
       // Stop sync scheduler
       try {
         const syncScheduler = require('./services/sync-scheduler.service');
         syncScheduler.stop();
       } catch {}
+
+      // Stop accepting new HTTP requests, wait for in-flight to complete
       server.close(() => {
         logger.info('HTTP server closed');
-        process.exit(0);
+
+        // Close database connection
+        const { disconnectDatabase } = require('./config/database');
+        disconnectDatabase().then(() => {
+          process.exit(0);
+        });
       });
-      // Force close after 10s
+
+      // Force exit after 10s if graceful shutdown hangs
       setTimeout(() => {
         logger.error('Forced shutdown after timeout');
         process.exit(1);

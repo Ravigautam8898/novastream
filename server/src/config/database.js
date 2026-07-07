@@ -284,15 +284,4 @@ mongoose.connection.on('reconnected', () => {
   }, `MongoDB connection restored${downtime !== null ? ` after ${downtime}s downtime` : ''}`);
 });
 
-// ── Graceful Shutdown ──
-process.on('SIGINT', async () => {
-  await disconnectDatabase();
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  await disconnectDatabase();
-  process.exit(0);
-});
-
 module.exports = { connectDatabase, disconnectDatabase, reconnectState };
