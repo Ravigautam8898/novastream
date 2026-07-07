@@ -312,17 +312,77 @@ class ProviderManager {
       throw ApiError.notFound(`Content '${slug}' not found`);
     }
 
-    // 2. Get provider mapping (providers[] first, fall back to legacy sourceId)
-    const providerMapping = this._getProviderMapping(content);
+    // 2. Get ALL provider mappings (multi-provider fallback — C4b)
+    const mappings = this._getProviderMappings(content);
 
-    if (!providerMapping) {
+    if (!mappings || mappings.length === 0) {
       throw ApiError.notFound(`Content '${slug}' has no provider mapping. Run content sync first.`);
     }
 
-    const { providerName, providerContentId } = providerMapping;
+    // 3. Try each provider mapping in priority order
+    //    One provider failure does NOT stop playback — continue until providers exhausted
+    const errors = [];
+    for (const mapping of mappings) {
+      try {
+        const result = await this._resolveWithMapping({
+          content,
+          mapping,
+          slug,
+          contentType,
+          quality,
+          season,
+          episode,
+        });
 
-    // 3. Build cache key (same format as ContentSourceService for cache compatibility)
-    //    Uses providerName (which is 'primary' for legacy content, matching existing cache keys)
+        // Success — resolved with this provider
+        if (mappings.length > 1) {
+          logger.info({
+            slug,
+            provider: result.provider,
+            attempted: mappings.length,
+            remaining: mappings.length - 1 - mappings.indexOf(mapping),
+          }, 'ProviderManager: multi-provider fallback resolved');
+        }
+
+        return result;
+      } catch (err) {
+        errors.push({ providerName: mapping.providerName, error: err.message });
+        logger.warn({
+          slug,
+          providerName: mapping.providerName,
+          err: err.message,
+          remaining: mappings.length - errors.length,
+        }, 'ProviderManager: provider mapping failed — trying next');
+      }
+    }
+
+    // All providers exhausted
+    logger.warn({
+      slug,
+      attempted: mappings.length,
+      errors,
+    }, 'ProviderManager: all provider mappings exhausted');
+
+    throw ApiError.notFound('No stream sources available for this content');
+  }
+
+  /**
+   * Resolve a stream URL for a SINGLE provider mapping.
+   * Extracted from resolve() for multi-provider support (C4b).
+   *
+   * Flow:
+   *   1. Build cache key from provider mapping
+   *   2. Check _streamCache → return if HIT
+   *   3. Acquire distributed lock
+   *   4. Try API providers matching this mapping
+   *   5. Try LIGHT_SCRAPER providers matching this mapping
+   *   6. Try BROWSER_SCRAPER providers matching this mapping
+   *   7. Cache result → return
+   */
+  static async _resolveWithMapping({ content, mapping, slug, contentType, quality, season, episode }) {
+    const { providerName, providerContentId } = mapping;
+
+    // Build cache key
     let cacheKey;
     if (contentType === 'movie') {
       cacheKey = `${providerName}:movie:${providerContentId}:${quality || '720p'}`;
@@ -332,31 +392,30 @@ class ProviderManager {
       cacheKey = `${providerName}:series:${providerContentId}:s${s}:e${e}:${quality || '720p'}`;
     }
 
-    // 4. Check _streamCache
+    // Check _streamCache
     const cached = await this._checkCache(cacheKey);
     if (cached) {
-      logger.debug({ cacheKey, slug }, 'ProviderManager: cache HIT');
+      logger.debug({ cacheKey, slug, providerName }, 'ProviderManager: cache HIT');
       const expiresAt = cached.expiresAt?.getTime
         ? Math.floor(cached.expiresAt.getTime() / 1000)
         : cached.expiresAt;
       return {
         url: cached.url,
         expiresAt,
-        // Provide the cached quality so the compatibility layer can report hasStreams
         allQualities: [{ quality: cached.quality || quality || '720p', url: cached.url }],
         provider: 'cache',
         cached: true,
       };
     }
 
-    // 5. Acquire distributed lock (cache stampede protection — C-008)
+    // Acquire distributed lock (cache stampede protection — C-008)
     const lock = new DistributedLock(`stream:resolve:${cacheKey}`, { ttlMs: LOCK_TTL_MS });
     let acquired = false;
 
     try {
       acquired = await lock.acquire();
 
-      // Double-check cache after acquiring lock (another worker may have filled it)
+      // Double-check cache after acquiring lock
       if (acquired) {
         const doubleCheck = await this._checkCache(cacheKey);
         if (doubleCheck) {
@@ -374,13 +433,13 @@ class ProviderManager {
         }
       }
 
-      // 6. Find the matching provider and resolve
+      // Resolve with this mapping
       const startTime = Date.now();
       let streamResult = null;
       let resolvedProvider = null;
       let allQualities = null;
 
-      // 6a. Try API providers first (DIRECT)
+      // Try API providers first (DIRECT)
       const apiProviders = this.getOrderedProviders('API');
       for (const { provider, meta } of apiProviders) {
         if (!this._matchesProvider(meta, providerName)) continue;
@@ -399,12 +458,12 @@ class ProviderManager {
             break;
           }
         } catch (err) {
-          logger.warn({ err, providerId: meta.id, slug }, 'ProviderManager: API provider failed');
+          logger.warn({ err, providerId: meta.id, slug, providerName }, 'ProviderManager: API provider failed');
           await ProviderRegistry.recordFailure(meta.id);
         }
       }
 
-      // 6b. If no API provider succeeded, try LIGHT_SCRAPER providers (QUEUE)
+      // If no API provider succeeded, try LIGHT_SCRAPER providers (QUEUE)
       if (!streamResult) {
         const scraperProviders = this.getOrderedProviders('LIGHT_SCRAPER');
         for (const { provider, meta } of scraperProviders) {
@@ -420,13 +479,13 @@ class ProviderManager {
               break;
             }
           } catch (err) {
-            logger.warn({ err, providerId: meta.id, slug }, 'ProviderManager: LIGHT_SCRAPER provider failed');
+            logger.warn({ err, providerId: meta.id, slug, providerName }, 'ProviderManager: LIGHT_SCRAPER provider failed');
             await ProviderRegistry.recordFailure(meta.id);
           }
         }
       }
 
-      // 6c. Last resort — try BROWSER_SCRAPER providers (WORKER)
+      // Last resort — try BROWSER_SCRAPER providers (WORKER)
       if (!streamResult) {
         const browserProviders = this.getOrderedProviders('BROWSER_SCRAPER');
         for (const { provider, meta } of browserProviders) {
@@ -442,23 +501,24 @@ class ProviderManager {
               break;
             }
           } catch (err) {
-            logger.warn({ err, providerId: meta.id, slug }, 'ProviderManager: BROWSER_SCRAPER provider failed');
+            logger.warn({ err, providerId: meta.id, slug, providerName }, 'ProviderManager: BROWSER_SCRAPER provider failed');
             await ProviderRegistry.recordFailure(meta.id);
           }
         }
       }
 
       if (!streamResult) {
-        throw ApiError.notFound('No stream sources available for this content');
+        throw ApiError.notFound(`No stream sources available for mapping '${providerName}'`);
       }
 
-      // 7. Cache the result
+      // Cache the result
       const expiresAt = this._getExpiresAt(streamResult.url);
       await this._saveCache(cacheKey, streamResult.url, quality || '720p', expiresAt);
 
       logger.info({
         slug,
         provider: resolvedProvider,
+        providerName,
         quality: streamResult.quality,
         expiresAt: new Date(expiresAt * 1000).toISOString(),
       }, 'ProviderManager: stream resolved and cached');
@@ -570,40 +630,81 @@ class ProviderManager {
   // ── Provider Mapping & Matching Helpers ──
 
   /**
-   * Get the provider mapping for a content item.
-   * Checks providers[] first (Track C2), falls back to legacy sourceId/sourceSite.
+   * Get ALL provider mappings for a content item, ordered by resolution priority.
+   * Returns providers[] entries sorted by: confidenceScore (desc) → status (verified=first).
+   * Falls back to legacy sourceId/sourceSite as a single-element array.
+   *
+   * C4b: Enables multi-provider fallback — if one provider fails, the next is tried.
+   *
+   * @param {Object} content - Content document (lean)
+   * @returns {Array<{ providerName: string, providerContentId: string, confidenceScore?: number }>}
+   */
+  static _getProviderMappings(content) {
+    const mappings = [];
+
+    // Priority 1: providers[] array (Track C2)
+    if (content.providers && content.providers.length > 0) {
+      const valid = content.providers.filter(p => p.providerName && p.providerContentId);
+      if (valid.length > 0) {
+        // Sort: higher confidence first, verified/active before others
+        valid.sort((a, b) => {
+          const aScore = a.confidenceScore || 0;
+          const bScore = b.confidenceScore || 0;
+          if (aScore !== bScore) return bScore - aScore;
+
+          // Prefer verified/active status
+          const aStatus = a.status === 'verified' || a.status === 'active' ? 1 : 0;
+          const bStatus = b.status === 'verified' || b.status === 'active' ? 1 : 0;
+          if (aStatus !== bStatus) return bStatus - aStatus;
+
+          return 0;
+        });
+
+        for (const p of valid) {
+          mappings.push({
+            providerName: p.providerName,
+            providerContentId: p.providerContentId,
+            confidenceScore: p.confidenceScore,
+          });
+        }
+      }
+    }
+
+    // Priority 2: Legacy sourceId/sourceSite (backward compatibility)
+    // Only add if not already covered by providers[] with matching providerName or legacySourceSite
+    if (content.sourceId) {
+      const legacyName = content.sourceSite || 'primary';
+      const alreadyCovered = mappings.some(
+        m => m.providerName === legacyName || m.legacySourceSite === legacyName
+      );
+      if (!alreadyCovered) {
+        logger.debug({
+          slug: content.slug,
+          title: content.title,
+          sourceId: content.sourceId,
+          sourceSite: content.sourceSite || 'primary',
+        }, 'ProviderManager: legacy sourceId/sourceSite added as additional fallback');
+        mappings.push({
+          providerName: legacyName,
+          providerContentId: content.sourceId,
+          confidenceScore: 0, // Lowest — legacy data
+        });
+      }
+    }
+
+    return mappings;
+  }
+
+  /**
+   * Get the SINGLE best provider mapping for a content item.
+   * Legacy compatibility — prefer _getProviderMappings() for multi-provider support.
    *
    * @param {Object} content - Content document (lean)
    * @returns {{ providerName: string, providerContentId: string } | null}
    */
   static _getProviderMapping(content) {
-    // Priority 1: providers[] array (Track C2)
-    if (content.providers && content.providers.length > 0) {
-      // Prefer verified/active providers, fall back to first available
-      const active = content.providers.find(p => p.status === 'verified' || p.status === 'active');
-      if (active) {
-        return {
-          providerName: active.providerName,
-          providerContentId: active.providerContentId,
-        };
-      }
-    }
-
-    // Priority 2: Legacy sourceId/sourceSite (backward compatibility)
-    if (content.sourceId) {
-      logger.debug({
-        slug: content.slug,
-        title: content.title,
-        sourceId: content.sourceId,
-        sourceSite: content.sourceSite || 'primary',
-      }, 'ProviderManager: legacy sourceId/sourceSite fallback used — document lacks providers[] mapping');
-      return {
-        providerName: content.sourceSite || 'primary',
-        providerContentId: content.sourceId,
-      };
-    }
-
-    return null;
+    const mappings = this._getProviderMappings(content);
+    return mappings.length > 0 ? mappings[0] : null;
   }
 
   /**
