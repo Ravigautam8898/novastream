@@ -3,7 +3,12 @@
 > **Phase:** C — Dynamic Provider Plugin System
 > **Document:** PROVIDER_DEVELOPMENT.md — Provider Developer SDK
 > **Purpose:** Enable any AI agent or developer to convert a cracked/decoded provider (APK, traffic capture, WaveStream plugin, API docs) into a NovaStream provider plugin without modifying core application code.
-> **Last Updated:** July 6, 2026
+> **Last Updated:** July 7, 2026
+>
+> **C-013 Architecture Rule:** Provider plugins do NOT create movies/shows.
+> They only resolve streams for existing content identity.
+> Content creation is the responsibility of ContentRegistry and metadata
+> providers (TMDB). See `FINDINGS.md` C-013 for full details.
 
 ---
 

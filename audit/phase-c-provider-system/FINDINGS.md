@@ -740,7 +740,68 @@ A common alternative is to run scrapers in the user's browser (client-side JavaS
 
 ## Findings
 
-### C-012 — Legacy Identity Contamination
+### C-013 — Content Registry & Stable URL Architecture
+
+**Status:** OPEN — Track C2 requirement
+
+**Problem:** Current URL strategy mixes content identity with provider data.
+
+```
+Current URLs:
+  DB content:    /watch/movie/supergirl-h2vm          ← uses slug (Nova-owned, stable)
+  TMDB bridge:   /watch/movie/tmdb-1315772             ← depends on TMDB ID (external)
+  External:      /watch/series/from-vz6s                ← uses slug
+  TMDB trending: /watch/series/tmdb-125988              ← depends on TMDB ID
+```
+
+The `tmdb-` prefix was introduced as a temporary bridge (Pre-C2 Metadata Navigation Bridge fix) to allow TMDB-sourced trending items to open detail pages without a DB record. This works for browsing but is architecturally incorrect for Track C.
+
+**Track C2 requirement — Content Registry:**
+
+Every metadata item gets a permanent Nova-owned slug at creation time. The slug is the canonical URL identifier and is owned by NovaStream, not any external provider.
+
+```
+Content Registry document (future):
+{
+  slug: "from-epix-s8k2",              // Permanent Nova-owned URL slug
+  title: "FROM",
+  identities: {                         // External identity links
+    tmdbId: 124364,
+    imdbId: "tt3232312",
+  },
+  providers: [                          // Multiple stream providers (C2 requirement)
+    { providerId: "primary", externalContentId: "abc123", confidence: 0.95 },
+  ],
+  metadata: {
+    posterPath: "/abc123.jpg",          // From TMDB (authoritative)
+    backdropPath: "/def456.jpg",        // From TMDB
+    seasons: [...],                      // From TMDB
+  },
+}
+```
+
+**Design rules:**
+1. **Metadata providers** (TMDB) create content identity — title, poster, backdrop, cast
+2. **Streaming providers** only attach availability — sourceId maps to provider content
+3. **Multiple homepage providers** merge into one catalog — deduplicated by tmdbId
+4. **URL slug is Nova owned** — never depends on provider IDs, never changes
+5. **Provider failure never changes content identity** — if a provider goes down, the content page still works (metadata remains), only "Play" shows unavailable
+
+**Migration path:**
+- C2: Create ContentRegistry service that manages slug lifecycle
+- C2: When content is first seen (from any source), generate and persist a Nova slug
+- C2: TMDB bridge routes (`/movies/tmdb/:id`) redirect to the canonical slug if the content is registered
+- C3: Remove `tmdb-` prefix URLs entirely
+
+**Impact on providers:**
+- Provider plugins do NOT create movies/shows
+- Provider plugins only resolve streams for existing content identity
+- A provider's `search()` is used to MATCH existing content (find the Nova slug), not to create new entries
+- Only ContentRegistry creates new content with a Nova-owned slug
+
+---
+
+## C-012 — Legacy Identity Contamination
 
 **Status:** FOUND IN PRODUCTION TEST — RESOLVED
 

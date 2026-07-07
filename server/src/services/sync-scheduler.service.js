@@ -170,16 +170,16 @@ async function runSync() {
 
         if (existing) {
           // Update metadata
+          // C-012: NEVER overwrite Content identity fields (title, originalTitle,
+          // posterPath, backdropPath, overview) with provider data.
+          // Provider data is for stream resolution only — TMDB is authoritative
+          // for metadata. Only update voteAverage (non-identity field).
           bulkOps.push({
             updateOne: {
               filter: { _id: existing._id },
               update: {
                 $set: {
                   voteAverage: extItem.voteAverage || existing.voteAverage,
-                  posterPath: extItem.posterPath || existing.posterPath,
-                  backdropPath: extItem.backdropPath || existing.backdropPath,
-                  overview: extItem.overview || existing.overview,
-                  title: extItem.title,
                 },
               },
             },
