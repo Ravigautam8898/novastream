@@ -764,7 +764,34 @@ class StreamWishExtractor {
 
 ## 8. APK Reverse Engineering Workflow
 
-When converting a provider from a cracked APK (`.cs3` WaveStream plugin, decompiled Android APK, etc.):
+### CastleTV — Documented Conversion Example
+
+CastleTV was the first provider converted from a decompiled APK. Here is the documented workflow:
+
+**Source:** `CastleTvProvider.cs3` (decompiled from Android DEX bytecode)
+**Python reference:** `workable_providers/castletv/provider.py`
+**Result:** `server/src/providers/sources/castletv.provider.js` (not tracked in git)
+
+| Property | Value |
+|----------|-------|
+| **Type** | `API` — JSON endpoints with AES/CBC encrypted responses |
+| **Base URL** | `https://api.hlowb.com` |
+| **Auth** | Dynamic AES key fetched via `/v0.1/system/getSecurityKey/1` |
+| **Crypto** | AES-128-CBC/PKCS5Padding, key = base64_decode(key) + `T!BgJB` → 16 bytes, IV = key |
+| **Content IDs** | Internal integer `movieId` and `episodeId` (no TMDB/IMDb IDs) |
+| **Stream policy** | `SIGNED_URL` — URLs have `expireTime` (~1 hour TTL) |
+| **Execution** | `DIRECT` — no queue needed for API provider |
+| **Caching** | ProviderManager `_streamCache` handles TTL and refresh |
+| **Subtitles** | Available as VTT URLs in stream response |
+| **Qualities** | 1=SD 480P, 2=HD 720P, 3=FHD 1080P (cap at 2 for free tier) |
+
+**Key discovery:** Encrypted API responses do NOT mean the provider is a scraper. CastleTV uses structured JSON endpoints with transport-level AES encryption. It is a pure API provider because:
+- No HTML parsing
+- No browser automation
+- No iframe extraction
+- All communication is JSON (encrypted at rest, but structured data)
+
+When converting from a decompiled APK, follow this workflow:
 
 ### Step 1: Capture the Network Layer
 
