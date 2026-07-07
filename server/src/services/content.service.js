@@ -394,7 +394,45 @@ class ContentService {
     let numberOfSeasons;
     let numberOfEpisodes;
 
-    if (series.seasons && series.seasons.length > 0) {
+    // PREC2-001: Identity consistency — when sourceId exists, prefer the external
+    // source for episode metadata over cached DB seasons. This ensures metadata
+    // and stream come from the same provider. If the external source is unavailable,
+    // fall back to cached DB seasons. If neither exists, show empty.
+    //
+    // Why: The sync process can update sourceId on an existing document without
+    // clearing its cached seasons, causing metadata (DB seasons) to show one
+    // show while the stream (sourceId) plays another. Preferring the external
+    // source guarantees identity consistency between what the user sees and
+    // what streams.
+    if (series.sourceId) {
+      logger.debug({ slug, sourceId: series.sourceId }, 'Fetching seasons from external source (sourceId authoritative)');
+      const externalSeasons = await ContentSourceService.fetchSeriesSeasonData(series);
+
+      if (externalSeasons.length > 0) {
+        seasonsWithEpisodes = externalSeasons;
+        numberOfSeasons = externalSeasons.length;
+        numberOfEpisodes = externalSeasons.reduce((sum, s) => sum + s.episodes.length, 0);
+      } else {
+        // External source failed or returned empty — fall back to cached DB seasons
+        if (series.seasons && series.seasons.length > 0) {
+          logger.warn({ slug, sourceId: series.sourceId }, 'External source unavailable — falling back to cached DB seasons');
+          seasonsWithEpisodes = series.seasons.map(season => ({
+            ...season,
+            episodes: (season.episodes || []).map(ep => ({
+              ...ep,
+              seasonNumber: season.seasonNumber,
+            })),
+          }));
+          numberOfSeasons = seasonsWithEpisodes.length;
+          numberOfEpisodes = seasonsWithEpisodes.reduce((sum, s) => sum + s.episodes.length, 0);
+        } else {
+          seasonsWithEpisodes = [];
+          numberOfSeasons = 0;
+          numberOfEpisodes = 0;
+        }
+      }
+    } else if (series.seasons && series.seasons.length > 0) {
+      // No sourceId — use cached DB seasons (local HLS content)
       seasonsWithEpisodes = series.seasons.map(season => ({
         ...season,
         episodes: (season.episodes || []).map(ep => ({
@@ -404,19 +442,6 @@ class ContentService {
       }));
       numberOfSeasons = seasonsWithEpisodes.length;
       numberOfEpisodes = seasonsWithEpisodes.reduce((sum, s) => sum + s.episodes.length, 0);
-    } else if (series.sourceId) {
-      logger.debug({ slug, sourceId: series.sourceId }, 'No seasons in DB — fetching from external source');
-      const externalSeasons = await ContentSourceService.fetchSeriesSeasonData(series);
-
-      if (externalSeasons.length > 0) {
-        seasonsWithEpisodes = externalSeasons;
-        numberOfSeasons = externalSeasons.length;
-        numberOfEpisodes = externalSeasons.reduce((sum, s) => sum + s.episodes.length, 0);
-      } else {
-        seasonsWithEpisodes = [];
-        numberOfSeasons = 0;
-        numberOfEpisodes = 0;
-      }
     } else {
       seasonsWithEpisodes = [];
       numberOfSeasons = 0;
