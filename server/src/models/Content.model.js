@@ -76,8 +76,19 @@ const contentSchema = new mongoose.Schema({
   isPremium: { type: Boolean, default: false },
 
   // External Source (for proxied streaming from external providers)
+  // Legacy — kept for backward compatibility until C3 migration
   sourceId: { type: String, index: true },   // External content ID (e.g., from primary source)
   sourceSite: { type: String },              // Source identifier for multi-source support
+
+  // Provider Mappings (Track C2 — replaces legacy sourceId/sourceSite)
+  // Allows multiple streaming providers per content item with confidence scoring.
+  providers: [{
+    providerName: { type: String, required: true },       // 'yupflix' | 'castletv'
+    providerContentId: { type: String, required: true },   // Provider's internal ID
+    confidenceScore: { type: Number, default: 1.0, min: 0, max: 1 }, // 0.0 - 1.0
+    lastVerified: { type: Date, default: Date.now },       // When mapping was confirmed
+    status: { type: String, enum: ['active', 'stale', 'failed'], default: 'active' },
+  }],
 
   // External Links
   homepage: { type: String },

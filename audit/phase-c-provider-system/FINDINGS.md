@@ -756,7 +756,20 @@ Current URLs:
 
 The `tmdb-` prefix was introduced as a temporary bridge (Pre-C2 Metadata Navigation Bridge fix) to allow TMDB-sourced trending items to open detail pages without a DB record. This works for browsing but is architecturally incorrect for Track C.
 
-**Track C2 requirement — Content Registry:**
+### Current Temporary State (Pre-C2, verified in testing)
+
+| URL Pattern | Example | Source | Has DB record? | Notes |
+|---|---|---|---|---|
+| Nova slug | `/watch/movie/colony-ktgb` | MongoDB Content | ✅ Yes | Content was seeded or synced into MongoDB with a permanent slug |
+| TMDB bridge | `/watch/series/tmdb-125988` | TMDB API live | ❌ No | Temporary bridge — TMDB trending item, not yet registered in MongoDB |
+
+**Confirmed behavior:**
+- MongoDB content always uses Nova-owned slug (e.g., `from-vz6s`, `colony-ktgb`)
+- TMDB-only content (trending items not yet seeded) uses `tmdb-{id}` as a temporary navigation bridge
+- The `tmdb-` prefix is a Pre-C2 construct — it works for browsing but must be eliminated in C2
+- No provider IDs appear in URLs — that's correct for the current architecture
+
+### C2 Target State — Content Registry
 
 Every metadata item gets a permanent Nova-owned slug at creation time. The slug is the canonical URL identifier and is owned by NovaStream, not any external provider.
 
@@ -778,6 +791,42 @@ Content Registry document (future):
     seasons: [...],                      // From TMDB
   },
 }
+
+// REMOVED in C2:
+//   slug: "tmdb-125988"               ← Never — TMDB IDs are not URL identifiers
+//   sourceId: "abc123"                 ← Replaced by providers[] array
+//   sourceSite: "primary"              ← Replaced by providers[].providerName
+```
+
+**What changes in C2:**
+| Aspect | Current (Pre-C2) | C2 Target |
+|---|---|---|
+| TMDB trending items | `tmdb-{id}` URL, no DB record | Created in ContentRegistry with permanent Nova slug on first appearance |
+| URL dependency | Mix of Nova slug + TMDB ID | Nova-owned slug ONLY |
+| Provider mapping | Single `sourceId`/`sourceSite` on Content | `providers[]` array with confidence scoring |
+| Content creation | Sync script or manual seed | ContentRegistry — first appearance from any source |
+| Navigation | `tmdb-` prefix required for non-seeded items | All items have a DB record; `tmdb-` routes become redirects |
+
+**Content flow for provider-only titles (e.g., "Notes from the Last Row" discovered during provider sync):**
+```
+Provider sync discovers: "Notes from the Last Row" (external ID: abc123)
+    │
+    1. ContentRegistry.lookup() 
+    │    ├─ Match by tmdbId (if provider provides it) → confidence 1.0
+    │    ├─ Match by title + year + type → confidence 0.8+
+    │    └─ No match → confidence < threshold, log for review
+    │
+    2. If high-confidence match found:
+    │    ├─ Attach provider mapping to existing Content document
+    │    └─ Never overwrite title/overview/poster/backdrop
+    │
+    3. If no match and confidence passes threshold:
+    │    ├─ Fetch metadata from TMDB (authoritative identity)
+    │    ├─ Create ContentRegistry entry with Nova-owned slug
+    │    └─ Attach provider mapping
+    │
+    4. If confidence below threshold:
+         └─ Log warning, manual review required
 ```
 
 **Design rules:**
@@ -786,11 +835,13 @@ Content Registry document (future):
 3. **Multiple homepage providers** merge into one catalog — deduplicated by tmdbId
 4. **URL slug is Nova owned** — never depends on provider IDs, never changes
 5. **Provider failure never changes content identity** — if a provider goes down, the content page still works (metadata remains), only "Play" shows unavailable
+6. **Provider-only titles go through ContentRegistry** — they are matched against TMDB/external metadata before a Content entry is created or updated
 
 **Migration path:**
 - C2: Create ContentRegistry service that manages slug lifecycle
-- C2: When content is first seen (from any source), generate and persist a Nova slug
+- C2: When content is first seen (from any source — TMDB trending, provider sync, search), generate and persist a Nova slug
 - C2: TMDB bridge routes (`/movies/tmdb/:id`) redirect to the canonical slug if the content is registered
+- C2: Provider-only titles discovered during sync follow the confidence-based flow above
 - C3: Remove `tmdb-` prefix URLs entirely
 
 **Impact on providers:**
