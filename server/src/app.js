@@ -253,6 +253,17 @@ async function startServer() {
         logger.warn({ err }, 'Failed to seed default plans (non-fatal)');
       }
 
+      // Discover and register streaming providers (after DB is connected)
+      if (config.server.nodeEnv !== 'test') {
+        try {
+          const ProviderManager = require('./providers/ProviderManager');
+          const count = await ProviderManager.discoverProviders();
+          logger.info({ count }, 'Provider discovery complete');
+        } catch (err) {
+          logger.warn({ err }, 'Failed to discover providers (non-fatal — ContentSourceService fallback available)');
+        }
+      }
+
       // Start sync scheduler (after DB is connected)
       if (config.server.nodeEnv !== 'test') {
       try {

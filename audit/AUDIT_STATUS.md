@@ -35,7 +35,7 @@ NovaStream currently has **three independent governance tracks** that run in par
 | **Status** | 🔒 **FROZEN** — C1 Architecture + C2 Framework Certified |
 | **Phase C1** | Architecture documentation, review, and freeze ✅ 🔒 FROZEN |
 | **Phase C2** | Provider Framework (ContentRegistry, BaseProvider, ProviderRegistry, ScraperQueue, ProviderManager) ✅ 🔒 FROZEN |
-| **Phase C3** | YupFlix Provider Migration 🟡 C3a Complete |
+| **Phase C3** | YupFlix Provider Migration 🟡 C3a Runtime Certified |
 | **Proposal** | `phase-c-provider-system/FINDINGS.md` |
 | **SDK Guide** | `phase-c-provider-system/PROVIDER_DEVELOPMENT.md` |
 | **Decisions** | C-001 through C-013 frozen as baseline |
@@ -153,10 +153,10 @@ NovaStream currently has **three independent governance tracks** that run in par
 
 | Field | Value |
 |-------|-------|
-| **Status** | 🔒 **FROZEN** — Phase C1 Architecture Complete, Implementation Ready |
-| **Implementation** | ❌ NOT STARTED |
+| **Status** | 🟢 C1 🔒 FROZEN · C2 🔒 FROZEN · C3a ✅ Runtime Certified |
+| **Implementation** | C1 Framework ✅ · C2 Framework ✅ · C3a YupFlix Migration ✅ |
 | **Proposal** | `phase-c-provider-system/FINDINGS.md` |
-| **Phases** | C1 (Architecture) 🔒 FROZEN · C2 (Framework) ⏳ Next · C3 (YupFlix) ❌ · C4 (CastleTV) ❌ · C5 (Extractors) ❌ · C6 (Admin) ❌ · C7 (Remote) ❌ |
+| **Phases** | C1 (Architecture) 🔒 FROZEN · C2 (Framework) 🔒 FROZEN · C3 (YupFlix) 🟡 C3a Done · C4 (CastleTV) ❌ · C5 (Extractors) ❌ · C6 (Admin) ❌ · C7 (Remote) ❌ |
 | **Governance** | Follow Track A governance model (findings lifecycle, certification, decisions) |
 
 ---

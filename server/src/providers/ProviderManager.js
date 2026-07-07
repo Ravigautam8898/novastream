@@ -85,8 +85,10 @@ class ProviderManager {
             continue;
           }
 
-          await this.registerProvider(ProviderClass, file);
-          count++;
+          const registered = await this.registerProvider(ProviderClass, file);
+          if (registered) {
+            count++;
+          }
         } catch (err) {
           logger.error({ err, file }, 'ProviderManager: failed to load provider file');
         }
@@ -328,11 +330,14 @@ class ProviderManager {
     const cached = await this._checkCache(cacheKey);
     if (cached) {
       logger.debug({ cacheKey, slug }, 'ProviderManager: cache HIT');
+      const expiresAt = cached.expiresAt?.getTime
+        ? Math.floor(cached.expiresAt.getTime() / 1000)
+        : cached.expiresAt;
       return {
         url: cached.url,
-        expiresAt: cached.expiresAt?.getTime
-          ? Math.floor(cached.expiresAt.getTime() / 1000)
-          : cached.expiresAt,
+        expiresAt,
+        // Provide the cached quality so the compatibility layer can report hasStreams
+        allQualities: [{ quality: cached.quality || quality || '720p', url: cached.url }],
         provider: 'cache',
         cached: true,
       };
@@ -350,11 +355,13 @@ class ProviderManager {
         const doubleCheck = await this._checkCache(cacheKey);
         if (doubleCheck) {
           await lock.release();
+          const expiresAt = doubleCheck.expiresAt?.getTime
+            ? Math.floor(doubleCheck.expiresAt.getTime() / 1000)
+            : doubleCheck.expiresAt;
           return {
             url: doubleCheck.url,
-            expiresAt: doubleCheck.expiresAt?.getTime
-              ? Math.floor(doubleCheck.expiresAt.getTime() / 1000)
-              : doubleCheck.expiresAt,
+            expiresAt,
+            allQualities: [{ quality: doubleCheck.quality || quality || '720p', url: doubleCheck.url }],
             provider: 'cache',
             cached: true,
           };
