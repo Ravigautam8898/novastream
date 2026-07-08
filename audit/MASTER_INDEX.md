@@ -21,6 +21,7 @@
 | 09 | Scalability | Architecture, provider abstraction, horizontal scaling | 🟡 BATCH A1 CERTIFIED (SC-014+SC-015) |
 | 10 | Final Certification | End-to-end verification, security audit, readiness check | PENDING |
 | C | Dynamic Provider Plugin System | ContentRegistry, BaseProvider, ProviderManager, ProviderRegistry, ScraperQueue, YupFlix/CastleTV providers, MetadataManager, metadata providers | C1-C5 🔒 FROZEN ✅ |
+| D | Frontend Experience & OTT UX Audit | Pages, components, UI patterns, responsive design, performance | 🟡 D0-D7 ACTIVE — Discovery Phase |
 
 ---
 
@@ -34,6 +35,19 @@
 
 **Status:** C1-C5 🔒 FROZEN ✅ — Architecture + Framework + YupFlix + CastleTV + Metadata + Playback complete, decisions C-001 through C-013 frozen
 **Next:** C6 — Extractor System
+
+---
+
+## Track D — Frontend Experience & OTT UX Audit
+
+**Focus:** Frontend pages, components, UI patterns, responsive design, performance
+- `client/src/pages/` — All 10 page components
+- `client/src/components/` — All content, layout, auth, admin, UI components
+- `client/src/styles/`, `client/src/api/`, `client/src/hooks/`, `client/src/context/`
+
+**Status:** 🟡 D0-D7 ACTIVE — Discovery Phase (no production code changes)
+**Location:** `audit/phase-d-frontend-experience/`
+**Next:** Review findings and plan implementation phases
 
 ---
 
