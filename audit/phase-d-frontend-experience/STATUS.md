@@ -4,14 +4,14 @@
 
 | Phase | Name | Status | Findings | Certified |
 |:-----:|------|:------:|:--------:|:---------:|
-| D0 | Audit Structure Setup | ✅ Complete | 0 | — |
-| D1 | Current UI Discovery | 🟡 Active | See D1_DISCOVERY.md | — |
-| D2 | Homepage Audit | 🟡 Active | See D2_HOMEPAGE.md | — |
-| D3 | Detail Page Audit | 🟡 Active | See D3_DETAIL_PAGE.md | — |
-| D4 | Player UX Audit | 🟡 Active | See D4_PLAYER_UX.md | — |
-| D5 | Search & Navigation Audit | 🟡 Active | See D5_SEARCH_NAVIGATION.md | — |
-| D6 | Mobile & Responsive Audit | 🟡 Active | See D6_MOBILE_RESPONSIVE.md | — |
-| D7 | Performance Audit | 🟡 Active | See D7_PERFORMANCE.md | — |
+| D0 | Audit Structure Setup | ✅ Complete 🔒 FROZEN | 0 | ✅ |
+| D1 | Current UI Discovery | ✅ Complete 🔒 FROZEN | See D1_DISCOVERY.md | ✅ |
+| D2 | Homepage Audit | ✅ Complete 🔒 FROZEN | See D2_HOMEPAGE.md | ✅ |
+| D3 | Detail Page Audit | ✅ Complete 🔒 FROZEN | See D3_DETAIL_PAGE.md | ✅ |
+| D4 | Player UX Audit | ✅ Complete 🔒 FROZEN | See D4_PLAYER_UX.md | ✅ |
+| D5 | Search & Navigation Audit | ✅ Complete 🔒 FROZEN | See D5_SEARCH_NAVIGATION.md | ✅ |
+| D6 | Mobile & Responsive Audit | ✅ Complete 🔒 FROZEN | See D6_MOBILE_RESPONSIVE.md | ✅ |
+| D7 | Performance Audit | ✅ Complete 🔒 FROZEN | See D7_PERFORMANCE.md | ✅ |
 
 ## Finding Summary
 
@@ -28,6 +28,6 @@
 | Field | Value |
 |-------|-------|
 | Started | July 8, 2026 |
-| Phase | D0 — Structure + D1 — Discovery |
-| Status | Audit structure created, 74 frontend files read, 25 findings across 6 areas, all docs drafted |
-| Next | Review findings, prioritize implementation phases |
+| Phase | D-Imp-1 — Homepage Experience Upgrade |
+| Status | Track D structure frozen. Remediation proposal drafted for D-Imp-1, awaiting user approval. |
+| Next | User approval → Implementation → Build → Browser Test → Regression → Certification |

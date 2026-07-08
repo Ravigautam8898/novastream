@@ -8,6 +8,7 @@ phase-d-frontend-experience/
 ├── INDEX.md               — This file
 ├── STATUS.md              — Live phase status
 ├── CERTIFICATION.md       — Freeze records and validation
+├── IMPLEMENTATION_LOG.md  — Implementation history (updated per phase)
 ├── findings/
 │   ├── D1_DISCOVERY.md    — Current UI discovery & component inventory
 │   ├── D2_HOMEPAGE.md     — Homepage audit (hero, rows, content cards)
