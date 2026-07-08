@@ -7,12 +7,13 @@
 > **Phase C2:** Completed July 7, 2026
 > **Phase C3:** Completed July 7, 2026
 > **Phase C4:** Completed July 7, 2026
-> **Next Phase:** C5d — Playback Recovery + Stream Lifecycle UX
+> **Next Phase:** C6 — Extractor System
 > **C5a:** Metadata Provider System ✅ 🟡 ACTIVE
 > **C5b:** Nova Identity Registration ✅ 🟡 ACTIVE
 > **C5c:** TMDB Bridge Removal ✅ 🟡 ACTIVE
-> **C5d:** Playback Recovery + Stream Lifecycle UX ❌ PENDING
-> **C5e:** Auto Provider Source UI ❌ PENDING
+> **C5d:** Playback Recovery + Stream Lifecycle UX ✅ 🟡 ACTIVE
+> **C5e:** Auto Provider Source UI ✅ 🟡 ACTIVE
+> **C5f:** Runtime Architecture Cleanup ✅ 🟡 ACTIVE
 > **Last Updated:** July 7, 2026
 
 ---
@@ -320,7 +321,21 @@ All 12 decisions (C-001 through C-011, C-013) are frozen as the baseline. Future
 - DetailPage/WatchPage: removed all tmdb- detection
 - All URLs: /watch/movie/{nova-slug}, /watch/series/{nova-slug}
 
-### Next Phase: C5d — Playback Recovery + Stream Lifecycle UX
-- Player handles: expired URL, 401, 403, 410, network failure
-- Refresh current provider stream on error
-- ProviderManager fallback to next provider on failure
+### C5f — Runtime Architecture Cleanup ✅ Complete
+
+| Task | Status |
+|------|--------|
+| Delete old sync-scheduler.service.js | ✅ Deleted — was creating Content from provider catalog every 6h |
+| Delete old sync-external-content.js | ✅ Deleted — did same catalog sync on demand |
+| Create MetadataRefreshScheduler service | ✅ Created — pre-warms homepage cache on startup, refreshes every 30min |
+| Modify app.js — remove old sync hooks, add new scheduler + EADDRINUSE | ✅ Done |
+| Update CLI — remove sync command, keep status | ✅ Done |
+| Cache design review — homepage vs stream cache | ✅ Confirmed separate (homepage = in-memory MemoryCache, stream = _streamCache MongoDB) |
+| All 52 tests pass | ✅ Zero regressions |
+| Frontend build | ✅ Passes |
+| EADDRINUSE detection | ✅ Clean diagnostic message instead of Node stack trace |
+| 22 PM2 instances online | ✅ Health endpoint returns 200 |
+
+**Key architectural change:** Stream providers (YupFlix, CastleTV) NEVER create catalog entries. Only MetadataManager → ContentRegistry.registerOrUpdate() creates Content documents. The old sync scheduler's provider-catalog-to-Content pipeline is eliminated.
+
+### Next Phase: C6 — Extractor System

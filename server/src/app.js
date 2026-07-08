@@ -275,50 +275,54 @@ async function startServer() {
         }
       }
 
-      // Start sync scheduler (after DB is connected)
+      // Start metadata refresh scheduler (after DB is connected)
+      // Refreshes homepage/search cache via MetadataManager — does NOT create Content documents
       if (config.server.nodeEnv !== 'test') {
-      try {
-        const syncScheduler = require('./services/sync-scheduler.service');
-        syncScheduler.start();
-        logger.info('External content sync scheduler started');
-      } catch (err) {
-        logger.warn({ err }, 'Failed to start sync scheduler (non-fatal)');
+        try {
+          const metadataScheduler = require('./services/metadata-refresh-scheduler.service');
+          metadataScheduler.start();
+        } catch (err) {
+          logger.warn({ err }, 'Failed to start metadata refresh scheduler (non-fatal)');
+        }
       }
-    }
 
-    // Start listening
-    const server = app.listen(config.server.port, () => {
+    // Start listening with graceful EADDRINUSE handling
+    // C5f: Port conflicts show a clean diagnostic message instead of a raw Node stack trace.
+    const server = app.listen(config.server.port);
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        logger.fatal({
+          port: config.server.port,
+        }, `ERROR: Port ${config.server.port} already in use.
+
+Possible causes:
+- NovaStream is already running
+- Another application is using this port
+
+Fix:
+  Stop the existing process or change the PORT environment variable`);
+        process.exit(1);
+      }
+      logger.fatal({ err, port: config.server.port }, 'Failed to start server');
+      process.exit(1);
+    });
+    server.on('listening', () => {
       logger.info({
         port: config.server.port,
         env: config.server.nodeEnv,
         url: `http://localhost:${config.server.port}`,
-      }, `NovaStream server started`);
+      }, 'NovaStream server started');
     });
 
-    // ── Pre-warm homepage cache (non-blocking, async) ──
-    // After startup, build the homepage sections in the background so the first
-    // user hitting the homepage doesn't trigger a cold cache-miss (which takes
-    // ~5s due to serial category queries with remote MongoDB round-trips).
-    // This runs after a short delay to let the server fully initialize.
-    setTimeout(() => {
-      const ContentService = require('./services/content.service');
-      ContentService.getHomepageSections().then(() => {
-        logger.info('Homepage cache pre-warmed successfully');
-      }).catch((err) => {
-        logger.warn({ err }, 'Homepage cache pre-warm failed (non-fatal — cache will warm on first request)');
-      });
-    }, 3000); // Wait 3s after server start to avoid competing with sync scripts
-
     // ── Graceful Shutdown ──
-    // Centralized: stop sync scheduler, close HTTP server, close DB, then exit.
-    // Signal handlers from database.js were removed — all shutdown logic is here.
+    // Centralized: stop metadata refresh scheduler, close HTTP server, close DB, then exit.
     const shutdown = async (signal) => {
       logger.info({ signal }, 'Shutdown signal received');
 
-      // Stop sync scheduler
+      // Stop metadata refresh scheduler
       try {
-        const syncScheduler = require('./services/sync-scheduler.service');
-        syncScheduler.stop();
+        const metadataScheduler = require('./services/metadata-refresh-scheduler.service');
+        metadataScheduler.stop();
       } catch {}
 
       // Stop accepting new HTTP requests, wait for in-flight to complete

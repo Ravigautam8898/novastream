@@ -171,18 +171,11 @@ const externalCommands = require('../commands/external.commands');
 
 const external = program
   .command('external')
-  .description('Manage external content source sync');
-
-external
-  .command('sync')
-  .description('Sync content catalog from external source')
-  .option('--dry-run', 'Preview changes without writing to DB')
-  .option('--verbose', 'Show detailed per-item logs')
-  .action((options) => externalCommands.sync(options));
+  .description('Manage external content source mapping status');
 
 external
   .command('status')
-  .description('Show external content sync status')
+  .description('Show external content mapping status (sourceId, sourceSite, provider mappings)')
   .action(externalCommands.status);
 
 // ── Telegram Commands ──

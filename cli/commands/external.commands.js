@@ -1,79 +1,17 @@
 // cli/commands/external.commands.js
-// novactl external commands — manage external content source sync
+// novactl external commands — manage external content source status
 //
 // Commands:
-//   novactl external sync       Run content sync from external source
 //   novactl external status     Show sync status (mapped vs unmapped content)
 //
-// Options:
-//   --dry-run   Preview changes without writing to DB
-//   --verbose   Show detailed per-item logs
+// C5f: sync command removed — provider catalog sync has been replaced by
+// MetadataRefreshScheduler which refreshes metadata cache without creating
+// Content documents. Provider mapping scripts (attach providers[] to existing
+// Content) are still valid and run separately.
 
-const ora = require('ora');
 const chalk = require('chalk');
 const { loadEnv, findProjectRoot } = require('../utils/helpers');
 const path = require('path');
-
-async function sync(options) {
-  loadEnv();
-
-  const dryRun = options.dryRun || false;
-  const verbose = options.verbose || false;
-
-  console.log('');
-  console.log(chalk.cyan('  External Content Sync'));
-  console.log(chalk.gray('  ───────────────────────────────'));
-
-  // Build args for the sync script
-  const scriptArgs = [];
-  if (dryRun) scriptArgs.push('--dry-run');
-  if (verbose) scriptArgs.push('--verbose');
-
-  console.log(`  Mode: ${dryRun ? chalk.yellow('Dry Run') : chalk.green('Live')}`);
-  console.log(`  Verbose: ${verbose ? chalk.green('Yes') : 'No'}`);
-  console.log('');
-
-  const spinner = ora('Running sync...').start();
-
-  try {
-    // Run the sync script as a child process
-    const { execSync } = require('child_process');
-    const root = findProjectRoot();
-    const scriptPath = path.join(root, 'server', 'scripts', 'sync-external-content.js');
-    const command = `node "${scriptPath}" ${scriptArgs.join(' ')}`;
-
-    const output = execSync(command, {
-      cwd: root,
-      encoding: 'utf8',
-      timeout: 120000, // 2 min timeout
-      maxBuffer: 1024 * 1024, // 1MB output buffer
-    });
-
-    spinner.stop();
-    console.log(output);
-
-    // Parse the summary line from output
-    const summaryMatch = output.match(/📊 Sync Complete[\s\S]*?(?=Total external items)/);
-    if (summaryMatch) {
-      console.log(chalk.green('  ✓ Sync completed successfully'));
-    } else {
-      // Check for error
-      if (output.includes('❌')) {
-        console.log(chalk.red('  ✗ Sync completed with errors'));
-      }
-    }
-  } catch (err) {
-    spinner.stop();
-    if (err.stdout) {
-      console.log(err.stdout);
-    }
-    if (err.stderr) {
-      console.error(chalk.red(err.stderr));
-    }
-    console.error(chalk.red(`  ✗ Sync failed: ${err.message}`));
-    process.exit(1);
-  }
-}
 
 async function status() {
   loadEnv();
@@ -182,4 +120,4 @@ async function status() {
   }
 }
 
-module.exports = { sync, status };
+module.exports = { status };

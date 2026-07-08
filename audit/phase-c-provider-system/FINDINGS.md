@@ -1132,12 +1132,20 @@ The legacy single `sourceId`/`sourceSite` must be replaced with a structured pro
 - `client/src/components/content/VideoPlayer.jsx` — onQualityChange prop
 - `client/src/pages/WatchPage.jsx` — SourceSelector, quality tracking, source preference, "Playback restored" toast
 
+### Phase C5f — Runtime Architecture Cleanup ✅ COMPLETE
+- [x] **Status:** ✅ COMPLETE
+
+**C5f changes:**
+- **Deleted** `server/src/services/sync-scheduler.service.js` — Old 6-hour sync scheduler that fetched provider catalog and created/updated Content documents.
+- **Deleted** `server/scripts/sync-external-content.js` — Same provider-catalog-to-Content pipeline.
+- **Created** `server/src/services/metadata-refresh-scheduler.service.js` — New scheduler: pre-warms homepage cache, periodic 30min refresh, DistributedLock for PM2 safety, no Content document creation.
+- **Modified** `server/src/app.js` — Removed old sync hooks, added MetadataRefreshScheduler, added graceful EADDRINUSE handling.
+- **Modified** CLI — Removed `external sync` command, kept `status`.
+
+**Validation:** ✅ All passes, 52 tests, frontend build, 22 PM2 instances, health endpoint, EADDRINUSE detection.
+
 ### Phase C6 — Auto Provider Source UI (Future)
 - [ ] **Status:** ❌ NOT STARTED
-- Auto mode default (normal users stay on Auto)
-- Fast Sources (API providers) and Backup Sources (LIGHT_SCRAPER/BROWSER_SCRAPER) labels
-- Provider names optional/debug only
-- Backend priority remains authoritative
 
 ### Phase C7 — Extractor System (Future)
 - [ ] **Status:** ❌ NOT STARTED

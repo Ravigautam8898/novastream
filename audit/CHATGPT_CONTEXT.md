@@ -98,7 +98,7 @@ NovaStream currently has **THREE independent governance tracks**. They must NOT 
 | Field | Value |
 |-------|-------|
 | **Purpose** | Move NovaStream from single embedded provider to scalable multi-provider plugin system |
-| **Status** | C1-C4 🔒 FROZEN · C5a/b/c 🟡 ACTIVE · C5d/e ❌ PENDING |
+| **Status** | C1-C4 🔒 FROZEN · C5a-f 🟡 ACTIVE |
 | **Phase C1** | Architecture documentation, review, and freeze ✅ 🔒 FROZEN |
 | **Phase C2** | Provider Framework (ContentRegistry, BaseProvider, ProviderRegistry, ScraperQueue, ProviderManager) ✅ 🔒 FROZEN |
 | **Phase C3** | YupFlix Provider Migration ✅ 🔒 FROZEN |
@@ -107,7 +107,9 @@ NovaStream currently has **THREE independent governance tracks**. They must NOT 
 | **Phase C5b** | Nova Identity Registration — registerOrUpdate(), safe merge, audit script ✅ 🟡 ACTIVE |
 | **Phase C5c** | TMDB Bridge Removal — slug-only URLs, ContentCard async registration ✅ 🟡 ACTIVE |
 | **Phase C5d** | Playback Recovery + Stream Lifecycle UX — expired URL, 401/403/410, network failure handling ❌ PENDING |
-| **Phase C5e** | Auto Provider Source UI — Auto mode default, Fast/Backup source labels ❌ PENDING |
+| **Phase C5d** | Playback Recovery + Stream Lifecycle UX — 3-tier recovery, retry storm protection ✅ COMPLETE |
+| **Phase C5e** | Auto Provider Source UI — Auto mode, Fast/Backup source labels, SourceSelector component ✅ COMPLETE |
+| **Phase C5f** | Runtime Architecture Cleanup — removed old sync scheduler, MetadataRefreshScheduler, EADDRINUSE handling ✅ COMPLETE |
 | **Governance** | Follows Track A governance model (findings lifecycle, certification, decisions) |
 | **Proposal** | `audit/phase-c-provider-system/FINDINGS.md` |
 | **SDK Guide** | `audit/phase-c-provider-system/PROVIDER_DEVELOPMENT.md` — Full provider conversion guide with templates |
