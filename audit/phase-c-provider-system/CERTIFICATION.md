@@ -1,20 +1,21 @@
 # Phase C — Dynamic Provider Plugin System — Certification
 
 > **Phase:** C — Dynamic Provider Plugin System
-> **Status:** 🔒 C1+C2+C3+C4 FROZEN
-> **Implementation:** C1 + C2 + C3 + C4 Complete
+> **Status:** 🔒 C1+C2+C3+C4+C5 FROZEN ✅
+> **Implementation:** C1 + C2 + C3 + C4 + C5 Complete
 > **Phase C1:** Completed July 6, 2026
 > **Phase C2:** Completed July 7, 2026
 > **Phase C3:** Completed July 7, 2026
 > **Phase C4:** Completed July 7, 2026
+> **Phase C5:** Completed July 8, 2026
 > **Next Phase:** C6 — Extractor System
-> **C5a:** Metadata Provider System ✅ 🟡 ACTIVE
-> **C5b:** Nova Identity Registration ✅ 🟡 ACTIVE
-> **C5c:** TMDB Bridge Removal ✅ 🟡 ACTIVE
-> **C5d:** Playback Recovery + Stream Lifecycle UX ✅ 🟡 ACTIVE
-> **C5e:** Auto Provider Source UI ✅ 🟡 ACTIVE
-> **C5f:** Runtime Architecture Cleanup ✅ 🟡 ACTIVE
-> **Last Updated:** July 7, 2026
+> **C5a:** Metadata Provider System ✅ 🔒 FROZEN
+> **C5b:** Nova Identity Registration ✅ 🔒 FROZEN
+> **C5c:** TMDB Bridge Removal ✅ 🔒 FROZEN
+> **C5d:** Playback Recovery + Stream Lifecycle UX ✅ 🔒 FROZEN
+> **C5e:** Auto Provider Source UI ✅ 🔒 FROZEN
+> **C5f:** Runtime Architecture Cleanup ✅ 🔒 FROZEN
+> **Last Updated:** July 8, 2026
 
 ---
 
@@ -28,7 +29,7 @@
 | **Closed** | 0 |
 | **Rejected** | 0 |
 | **Won't Fix** | 0 |
-| **Status** | 🟢 C1 🔒 FROZEN · C2 🔒 FROZEN · C3 🔒 FROZEN · C4 🔒 FROZEN |
+| **Status** | 🟢 C1 🔒 FROZEN · C2 🔒 FROZEN · C3 🔒 FROZEN · C4 🔒 FROZEN · C5 🔒 FROZEN ✅ |
 | **C1 Start Date** | 2026-07-06 |
 | **C1 Freeze Date** | 2026-07-06 |
 | **C2 Implementation Date** | 2026-07-07 |
@@ -37,10 +38,13 @@
 | **C3 Freeze Date** | 2026-07-07 |
 | **C4 Implementation Date** | 2026-07-07 |
 | **C4 Freeze Date** | 2026-07-07 |
+| **C5 Implementation Date** | 2026-07-08 |
+| **C5 Freeze Date** | 2026-07-08 |
 | **Decisions Frozen** | C-001 through C-013 |
 | **C2 Implementation** | ✅ CERTIFIED 🔒 FROZEN |
 | **C3 Implementation** | ✅ CERTIFIED 🔒 FROZEN |
 | **C4 Implementation** | ✅ CERTIFIED 🔒 FROZEN |
+| **C5 Implementation** | ✅ CERTIFIED 🔒 FROZEN |
 
 ---
 
@@ -304,7 +308,7 @@ All 12 decisions (C-001 through C-011, C-013) are frozen as the baseline. Future
 4. `providerData` = provider-specific data (opaque to ProviderManager)
 5. All future decoded APK providers must follow PROVIDER_DEVELOPMENT.md
 
-### C5 Completed: Metadata Provider System
+### C5 — Metadata + Playback Architecture ✅ Certified 🔒 FROZEN
 
 **C5a — Metadata Provider Framework (2026-07-07):**
 - BaseMetadataProvider, MetadataManager, tmdb.metadata adapter
@@ -337,5 +341,22 @@ All 12 decisions (C-001 through C-011, C-013) are frozen as the baseline. Future
 | 22 PM2 instances online | ✅ Health endpoint returns 200 |
 
 **Key architectural change:** Stream providers (YupFlix, CastleTV) NEVER create catalog entries. Only MetadataManager → ContentRegistry.registerOrUpdate() creates Content documents. The old sync scheduler's provider-catalog-to-Content pipeline is eliminated.
+
+### C5 Freeze Certification — July 8, 2026
+
+**Phases certified:** C5a (Metadata System) · C5b (Identity Lifecycle) · C5c (TMDB Bridge Removal) · C5d (Playback Recovery) · C5e (Auto Source UI) · C5f (Runtime Cleanup)
+
+**Final validation results:**
+
+| Check | Result |
+|-------|--------|
+| Git status — clean working tree | ✅ Clean |
+| All 52 tests pass | ✅ Zero regressions |
+| Frontend build | ✅ Passes (6.62s) |
+| Identity audit — 769 items scanned | ✅ 0 duplicates, 0 missing slugs, 2 Class B conflicts (acceptable) |
+| Provider safety — *.provider.js gitignored | ✅ example.provider.js tracked, real providers ignored |
+| Runtime startup — MetadataRefreshScheduler | ✅ 22 instances online, health endpoint 200
+
+**Certified By:** AI Agent — 2026-07-08
 
 ### Next Phase: C6 — Extractor System

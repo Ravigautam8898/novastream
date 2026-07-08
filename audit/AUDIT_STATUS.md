@@ -32,17 +32,17 @@ NovaStream currently has **three independent governance tracks** that run in par
 
 | Field | Value |
 |-------|-------|
-| **Status** | 🔒 **FROZEN** — C1 + C2 + C3 + C4 Certified |
+| **Status** | 🔒 **FROZEN** — C1 + C2 + C3 + C4 + C5 ✅ Certified |
 | **Phase C1** | Architecture documentation, review, and freeze ✅ 🔒 FROZEN |
 | **Phase C2** | Provider Framework (ContentRegistry, BaseProvider, ProviderRegistry, ScraperQueue, ProviderManager) ✅ 🔒 FROZEN |
 | **Phase C3** | YupFlix Provider Migration ✅ 🔒 FROZEN |
 | **Phase C4** | CastleTV Provider Integration ✅ 🔒 FROZEN |
-| **Phase C5a** | Metadata Provider System — Framework, TMDB adapter, ContentService integration ✅ 🟡 ACTIVE |
-| **Phase C5b** | Nova Identity Registration — registerOrUpdate(), safe merge, audit script ✅ 🟡 ACTIVE |
-| **Phase C5c** | TMDB Bridge Removal — frontend tmdb-* detection removed, slug-only navigation ✅ 🟡 ACTIVE |
-| **Phase C5d** | Playback Recovery + Stream Lifecycle UX — recoverStream(), 3-tier recovery, retry storm protection ✅ 🟡 ACTIVE |
-| **Phase C5e** | Auto Provider Source UI — SourceSelector, GET /api/external/sources, manual selection, quality tracking ✅ 🟡 ACTIVE |
-| **Phase C5f** | Runtime Architecture Cleanup — removed old sync scheduler, created MetadataRefreshScheduler, EADDRINUSE handling ✅ 🟡 ACTIVE |
+| **Phase C5a** | Metadata Provider System — Framework, TMDB adapter, ContentService integration ✅ 🔒 FROZEN |
+| **Phase C5b** | Nova Identity Registration — registerOrUpdate(), safe merge, audit script ✅ 🔒 FROZEN |
+| **Phase C5c** | TMDB Bridge Removal — frontend tmdb-* detection removed, slug-only navigation ✅ 🔒 FROZEN |
+| **Phase C5d** | Playback Recovery + Stream Lifecycle UX — recoverStream(), 3-tier recovery, retry storm protection ✅ 🔒 FROZEN |
+| **Phase C5e** | Auto Provider Source UI — SourceSelector, GET /api/external/sources, manual selection, quality tracking ✅ 🔒 FROZEN |
+| **Phase C5f** | Runtime Architecture Cleanup — removed old sync scheduler, created MetadataRefreshScheduler, EADDRINUSE handling ✅ 🔒 FROZEN |
 | **Proposal** | `phase-c-provider-system/FINDINGS.md` |
 | **SDK Guide** | `phase-c-provider-system/PROVIDER_DEVELOPMENT.md` |
 | **Decisions** | C-001 through C-013 frozen as baseline |
@@ -163,7 +163,7 @@ NovaStream currently has **three independent governance tracks** that run in par
 | **Status** | 🟢 C1 🔒 FROZEN · C2 🔒 FROZEN · C3 🔒 FROZEN |
 | **Implementation** | C1 Framework ✅ · C2 Framework ✅ · C3 YupFlix Migration ✅ |
 | **Proposal** | `phase-c-provider-system/FINDINGS.md` |
-| **Phases** | C1 (Architecture) 🔒 FROZEN · C2 (Framework) 🔒 FROZEN · C3 (YupFlix) 🔒 FROZEN · C4 (CastleTV) 🔒 FROZEN · C5a (Metadata) 🟡 ACTIVE · C5b (Register) 🟡 ACTIVE · C5c (Bridge Removal) 🟡 ACTIVE · C5d (Playback Recovery) 🟡 ACTIVE · C5e (Auto Source UI) 🟡 ACTIVE · C5f (Runtime Cleanup) 🟡 ACTIVE · C6 (Extractor System) ❌ · C7 (Remote Update) ❌ · C8 (Provider Admin) ❌ |
+| **Phases** | C1 (Architecture) 🔒 FROZEN · C2 (Framework) 🔒 FROZEN · C3 (YupFlix) 🔒 FROZEN · C4 (CastleTV) 🔒 FROZEN · C5a-f 🔒 FROZEN · C6 (Extractor System) ❌ · C7 (Provider Admin) ❌ · C8 (Remote Update) ❌ |
 | **Governance** | Follow Track A governance model (findings lifecycle, certification, decisions) |
 
 ---

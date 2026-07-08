@@ -98,24 +98,23 @@ NovaStream currently has **THREE independent governance tracks**. They must NOT 
 | Field | Value |
 |-------|-------|
 | **Purpose** | Move NovaStream from single embedded provider to scalable multi-provider plugin system |
-| **Status** | C1-C4 🔒 FROZEN · C5a-f 🟡 ACTIVE |
+| **Status** | C1-C5 🔒 FROZEN ✅ |
 | **Phase C1** | Architecture documentation, review, and freeze ✅ 🔒 FROZEN |
 | **Phase C2** | Provider Framework (ContentRegistry, BaseProvider, ProviderRegistry, ScraperQueue, ProviderManager) ✅ 🔒 FROZEN |
 | **Phase C3** | YupFlix Provider Migration ✅ 🔒 FROZEN |
 | **Phase C4** | CastleTV Provider Integration + Multi-Provider Fallback + Contract Hardening ✅ 🔒 FROZEN |
-| **Phase C5a** | Metadata Provider System — Framework, TMDB adapter, ContentService integration ✅ 🟡 ACTIVE |
-| **Phase C5b** | Nova Identity Registration — registerOrUpdate(), safe merge, audit script ✅ 🟡 ACTIVE |
-| **Phase C5c** | TMDB Bridge Removal — slug-only URLs, ContentCard async registration ✅ 🟡 ACTIVE |
-| **Phase C5d** | Playback Recovery + Stream Lifecycle UX — expired URL, 401/403/410, network failure handling ❌ PENDING |
-| **Phase C5d** | Playback Recovery + Stream Lifecycle UX — 3-tier recovery, retry storm protection ✅ COMPLETE |
-| **Phase C5e** | Auto Provider Source UI — Auto mode, Fast/Backup source labels, SourceSelector component ✅ COMPLETE |
-| **Phase C5f** | Runtime Architecture Cleanup — removed old sync scheduler, MetadataRefreshScheduler, EADDRINUSE handling ✅ COMPLETE |
+| **Phase C5a** | Metadata Provider System — Framework, TMDB adapter, ContentService integration ✅ 🔒 FROZEN |
+| **Phase C5b** | Nova Identity Registration — registerOrUpdate(), safe merge, audit script ✅ 🔒 FROZEN |
+| **Phase C5c** | TMDB Bridge Removal — slug-only URLs, ContentCard async registration ✅ 🔒 FROZEN |
+| **Phase C5d** | Playback Recovery + Stream Lifecycle UX — 3-tier recovery, retry storm protection ✅ 🔒 FROZEN |
+| **Phase C5e** | Auto Provider Source UI — Auto mode, Fast/Backup source labels, SourceSelector component ✅ 🔒 FROZEN |
+| **Phase C5f** | Runtime Architecture Cleanup — removed old sync scheduler, MetadataRefreshScheduler, EADDRINUSE handling ✅ 🔒 FROZEN |
 | **Governance** | Follows Track A governance model (findings lifecycle, certification, decisions) |
 | **Proposal** | `audit/phase-c-provider-system/FINDINGS.md` |
 | **SDK Guide** | `audit/phase-c-provider-system/PROVIDER_DEVELOPMENT.md` — Full provider conversion guide with templates |
 | **Decisions** | C-001 through C-013 — frozen baseline |
 
-**⚠️ C1-C4 are 🔒 FROZEN.** No further architecture or framework changes. Do not modify frozen decisions without an architecture amendment process. C5a/b/c are 🟡 ACTIVE. Next: C5d — Playback Recovery + Stream Lifecycle UX.
+**⚠️ C1-C5 are 🔒 FROZEN.** No further architecture or framework changes without an architecture amendment process. Next phase: C6 — Extractor System.
 
 > 📍 `audit/phase-c-provider-system/` tracks Track C architecture. `audit/` tracks Track A audit progress.
 
