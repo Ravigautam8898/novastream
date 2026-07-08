@@ -10,6 +10,7 @@ const config = require('../config/env');
 const mongoose = require('mongoose');
 const SystemService = require('../services/system.service');
 const ApiResponse = require('../utils/ApiResponse');
+const MetadataManager = require('../metadata/MetadataManager');
 
 // Import reconnect state from database module
 const { reconnectState } = require('../config/database');
@@ -192,5 +193,48 @@ function formatUptime(seconds) {
   parts.push(s + 's');
   return parts.join(' ');
 }
+
+/**
+ * Metadata health endpoint (D-012).
+ * Returns metadata provider status, scheduler state, cache age, and failure history.
+ * Used by future Super Admin panel — no UI built yet, backend only.
+ * GET /api/health/metadata
+ */
+router.get('/metadata', async (req, res) => {
+  try {
+    const scheduler = require('../services/metadata-refresh-scheduler.service');
+    const providers = await MetadataManager.listProviders();
+    const systemState = await MetadataManager.getSystemState();
+
+    ApiResponse.success(res, {
+      providers: providers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        version: p.version,
+        type: p.type,
+        priority: p.priority,
+        enabled: p.enabled,
+        capabilities: Object.keys(p.capabilities).filter((k) => p.capabilities[k]),
+        health: {
+          status: p.health.ok === false ? 'offline'
+            : p.health.successRate < 0.3 ? 'degraded'
+            : p.health.ok === true ? 'healthy'
+            : 'unknown',
+          successRate: p.health.successRate ? Number(p.health.successRate.toFixed(3)) : null,
+          avgLatencyMs: p.health.avgLatency !== Infinity && p.health.avgLatency !== null
+            ? Math.round(p.health.avgLatency)
+            : null,
+          lastCheckAt: p.health.lastCheckAt?.toISOString() || null,
+        },
+      })),
+      scheduler: scheduler.getStatus(),
+      cache: {
+        providerCount: systemState.providerCount,
+      },
+    });
+  } catch (err) {
+    ApiResponse.error(res, 500, 'Failed to fetch metadata health', err.message);
+  }
+});
 
 module.exports = router;

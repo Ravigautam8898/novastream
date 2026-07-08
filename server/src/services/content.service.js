@@ -86,6 +86,10 @@ class ContentService {
    * Get all homepage sections (featured, trending, categories)
    * Each section contains a title, type, and array of content items
    * Results are cached in-memory for 5 minutes to avoid repeated slow queries.
+   *
+   * D-012: Failure resilience — if a rebuild fails or returns zero sections
+   * and we have existing cached data, the old cache is preserved so the
+   * homepage never goes blank due to a transient TMDB outage.
    */
   static async getHomepageSections() {
     // Return cached result if still fresh (PF-006: also check DB version)
@@ -100,84 +104,111 @@ class ContentService {
 
     logger.debug('Building homepage sections');
 
-    // Try DB first — if we have featured content, use it
-    const dbFeatured = await Content.find({ isFeatured: true, isActive: true })
-      .sort({ popularity: -1 })
-      .limit(10)
-      .lean();
+    let sections = [];
 
-    const sections = [];
+    try {
+      // Try DB first — if we have featured content, use it
+      const dbFeatured = await Content.find({ isFeatured: true, isActive: true })
+        .sort({ popularity: -1 })
+        .limit(10)
+        .lean();
 
-    // Track whether we've already added trending (to avoid duplicates)
-    let trendingAdded = false;
+      // Track whether we've already added trending (to avoid duplicates)
+      let trendingAdded = false;
 
-    // Section 1: Featured / Hero Carousel
-    if (dbFeatured.length >= 5) {
-      sections.push({
-        id: 'featured',
-        title: 'Featured',
-        type: 'featured',
-        items: dbFeatured,
-        layout: 'hero',
-      });
-    } else {
-      // MetadataManager fallback — get trending from best metadata provider
-      try {
-        const trendingItems = await MetadataManager.getTrending({ page: 1 });
+      // Section 1: Featured / Hero Carousel
+      if (dbFeatured.length >= 5) {
         sections.push({
-          id: 'trending',
-          title: 'Trending Now',
-          type: 'trending',
-          items: trendingItems.slice(0, 10),
+          id: 'featured',
+          title: 'Featured',
+          type: 'featured',
+          items: dbFeatured,
           layout: 'hero',
         });
-        trendingAdded = true;
-      } catch (err) {
-        logger.warn({ err }, 'Failed to fetch trending for hero section');
+      } else {
+        // MetadataManager fallback — get trending from best metadata provider
+        try {
+          const trendingItems = await MetadataManager.getTrending({ page: 1 });
+          sections.push({
+            id: 'trending',
+            title: 'Trending Now',
+            type: 'trending',
+            items: trendingItems.slice(0, 10),
+            layout: 'hero',
+          });
+          trendingAdded = true;
+        } catch (err) {
+          logger.warn({ err }, 'Failed to fetch trending for hero section');
+        }
       }
-    }
 
-    // Section 2: Trending Now (skip if already added as hero)
-    if (!trendingAdded) {
-      try {
-        const trending = await MetadataManager.getTrending({ page: 1 });
-        sections.push({
-          id: 'trending',
-          title: 'Trending Now',
-          type: 'trending',
-          items: trending.slice(0, 20),
-          layout: 'row',
-        });
-      } catch (err) {
-        logger.warn({ err }, 'Failed to fetch trending from metadata providers');
+      // Section 2: Trending Now (skip if already added as hero)
+      if (!trendingAdded) {
+        try {
+          const trending = await MetadataManager.getTrending({ page: 1 });
+          sections.push({
+            id: 'trending',
+            title: 'Trending Now',
+            type: 'trending',
+            items: trending.slice(0, 20),
+            layout: 'row',
+          });
+        } catch (err) {
+          logger.warn({ err }, 'Failed to fetch trending from metadata providers');
+        }
       }
-    }
 
-    // Section 3: Categories (DB-first with TMDB fallback)
-    // Run all 4 category fetches in PARALLEL — they're completely independent.
-    const categories = ['Hollywood', 'Bollywood', 'Korean', 'South Indian'];
-    const categoryResults = await Promise.allSettled(
-      categories.map(category =>
-        this.getByCategory(category, 1, 20).then(items => ({ category, items }))
-      )
-    );
+      // Section 3: Categories (DB-first with TMDB fallback)
+      // Run all 4 category fetches in PARALLEL — they're completely independent.
+      const categories = ['Hollywood', 'Bollywood', 'Korean', 'South Indian'];
+      const categoryResults = await Promise.allSettled(
+        categories.map(category =>
+          this.getByCategory(category, 1, 20).then(items => ({ category, items }))
+        )
+      );
 
-    for (const result of categoryResults) {
-      if (result.status === 'rejected') {
-        logger.warn({ category: result.reason?.category, err: result.reason }, 'Failed to fetch category');
-        continue;
+      for (const result of categoryResults) {
+        if (result.status === 'rejected') {
+          logger.warn({ category: result.reason?.category, err: result.reason }, 'Failed to fetch category');
+          continue;
+        }
+        const { category, items: categoryItems } = result.value;
+        if (categoryItems.items.length > 0) {
+          sections.push({
+            id: `category-${category.toLowerCase().replace(/\s+/g, '-')}`,
+            title: category,
+            type: 'category',
+            category,
+            items: categoryItems.items,
+            layout: 'row',
+          });
+        }
       }
-      const { category, items: categoryItems } = result.value;
-      if (categoryItems.items.length > 0) {
-        sections.push({
-          id: `category-${category.toLowerCase().replace(/\s+/g, '-')}`,
-          title: category,
-          type: 'category',
-          category,
-          items: categoryItems.items,
-          layout: 'row',
-        });
+
+      // D-012: Validate rebuild result — never replace a good cache with a bad one
+      if (sections.length === 0 && this.#homepageCache !== null) {
+        // Rebuild produced zero sections but we have cached data — preserve old cache
+        logger.warn('Homepage rebuild produced zero sections — preserving existing cache');
+        return this.#homepageCache;
       }
+
+      // D-012: If cache exists, the new result has sections, but the original
+      // cache had hero + trending + categories, warn but still update if reasonable
+      if (sections.length < 2 && this.#homepageCache !== null && this.#homepageCache.length >= 3) {
+        logger.warn({
+          existingSections: this.#homepageCache.length,
+          newSections: sections.length,
+        }, 'Homepage rebuild produced fewer sections than cached — preserving existing cache');
+        return this.#homepageCache;
+      }
+    } catch (err) {
+      // D-012: Catastrophic rebuild failure — preserve existing cache
+      logger.error({ err }, 'Homepage rebuild failed catastrophically — preserving existing cache');
+      if (this.#homepageCache !== null) {
+        return this.#homepageCache;
+      }
+      // No cache to fall back to — re-throw so caller knows it failed
+      throw err;
     }
 
     // Cache the result

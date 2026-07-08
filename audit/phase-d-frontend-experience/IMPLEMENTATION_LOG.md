@@ -32,8 +32,23 @@
 
 **D-011 Fix:** Removed genre quick access chips from HomePage (D-005 relocation). Renamed "Browse" → "Discover" in Header.jsx. Added GENRES constant (8 TMDB genres: Action, Adventure, Comedy, Drama, Horror, Mystery, Sci-Fi, Thriller) and CATEGORIES constant (4 existing hardcoded categories). Discover dropdown now includes: Trending, New Releases, Categories, Genres (2-column grid). All links use existing `/category/:slug` routes.
 
-**Build Result:** ✅ PASS (8.23s, zero errors)
+**D-012 Fix — Metadata Cache Lifecycle Hardening:**
+- Hourly wall-clock aligned scheduler (HH:00:00) via `msUntilNextHour()` — all PM2 instances naturally align
+- 3-retry exponential backoff (10s, 30s, 60s) on refresh failure
+- Cache resilience: rebuild failure never clears existing cache (preserves on 0 sections, partial rebuild, or catastrophic error)
+- Health tracking: totalAttempts, totalSuccesses, failureCount, lastError
+- New `/api/health/metadata` endpoint exposing provider status + scheduler health
+
+**D-013 Fix — TMDB Certification Rating Integration:**
+- `fetchMovieCertification()`: calls `movieReleaseDates` endpoint, US priority → first available → adult flag fallback
+- `fetchSeriesCertification()`: calls `tvContentRatings` endpoint, US priority → first available → adult flag fallback
+- Both flow through existing `syncMovie`/`syncSeries` → `MetadataManager` → `ContentRegistry.registerOrUpdate()` pipeline
+- No new storage — uses existing `Content.contentRating` field + MongoDB cache
+
+**Build Result:** ✅ PASS (8.93s, zero errors)
 **Tests:** ✅ PASS (52/52, zero regressions)
+**Syntax Checks:** ✅ ALL OK
+**Code Review:** ✅ Clean — no blockers
 **Browser Test:** ⏳ PENDING
 **Regression:** ✅ PASS
 **Certification:** PENDING — awaiting user browser test confirmation

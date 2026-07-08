@@ -139,7 +139,35 @@
 | **Root Cause** | D-Imp-1 placed genre chips inline on HomePage.jsx as a content row. They have no business being in the content flow — they're navigation controls. |
 | **Recommended Fix** | 1. Rename "Browse" → "Discover" in Header.jsx. 2. Add genre sub-navigation to the Discover dropdown (Action, Adventure, Comedy, Drama, Horror, Mystery, Sci-Fi, Thriller). 3. Add Trending and New Releases links to the dropdown. 4. Remove genre chips from HomePage.jsx. 5. Keep existing hardcoded categories (Hollywood, Bollywood, Korean, South Indian). |
 | **Implementation Phase** | D-Imp-1 |
-| **Status** | OPEN |
+| **Status** | 🟡 Fixed |
+
+### D-012 — Metadata Cache Lifecycle Hardening
+
+| Field | Value |
+|-------|-------|
+| **ID** | D-012 |
+| **Area** | Backend / Caching |
+| **Severity** | Medium |
+| **Current** | MetadataRefreshScheduler uses 30-min relative intervals from server start. No retry on failure. Cache can be overwritten with empty results if TMDB is down. No health visibility. |
+| **Expected OTT behavior** | Hourly wall-clock aligned refreshes (HH:00:00). Transient failures never clear cache — old data serves. Exponential backoff retry. Health status endpoint for operators. |
+| **Root Cause** | Scheduler used setInterval relative to server start time. No resilience logic in cache rebuild path. |
+| **Recommended Fix** | 1. Align to HH:00:00 via `msUntilNextHour()` calculation. 2. Add 3-retry exponential backoff (10s, 30s, 60s). 3. Preserve existing cache on rebuild failure. 4. Track health state (lastSuccessAt, failureCount, lastError). 5. Expose via `/api/health/metadata` endpoint. |
+| **Implementation Phase** | D-Imp-1 |
+| **Status** | 🟡 Fix applied |
+
+### D-013 — TMDB Certification Rating Integration
+
+| Field | Value |
+|-------|-------|
+| **ID** | D-013 |
+| **Area** | Backend / TMDB Integration |
+| **Severity** | Medium |
+| **Current** | TMDB service only checks `adult` boolean flag. All non-adult content gets `contentRating: null`, losing PG, PG-13, TV-14, TV-MA certifications. |
+| **Expected OTT behavior** | Movies: fetch `release_dates` endpoint, extract US certification. Series: fetch `content_ratings` endpoint, extract US rating. Store in existing `Content.contentRating` field. |
+| **Root Cause** | `syncMovie()`/`syncSeries()` never called TMDB's dedicated certification endpoints. |
+| **Recommended Fix** | 1. Add `fetchMovieCertification()` — calls `movieReleaseDates`, priority: US → first available → adult flag fallback. 2. Add `fetchSeriesCertification()` — calls `tvContentRatings`, priority: US → first available → adult flag fallback. 3. Store through existing `MetadataManager` → `ContentRegistry.registerOrUpdate()` pipeline. |
+| **Implementation Phase** | D-Imp-1 |
+| **Status** | 🟡 Fix applied |
 
 ## Summary
 
@@ -155,3 +183,5 @@
 | D-009 | Navigation Race Condition | Medium | D-Imp-1 | 🟡 Fixed |
 | D-010 | Homepage Metadata Deduplication Failure | High | D-Imp-1 | 🟡 Fix applied |
 | D-011 | Homepage Genre Navigation Placement Issue | Medium | D-Imp-1 | 🟡 Fix applied |
+| D-012 | Metadata Cache Lifecycle Hardening | Medium | D-Imp-1 | 🟡 Fix applied |
+| D-013 | TMDB Certification Rating Integration | Medium | D-Imp-1 | 🟡 Fix applied |

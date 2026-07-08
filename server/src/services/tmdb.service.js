@@ -75,6 +75,40 @@ class TMDbService {
   // ── Movie Syncing ──
 
   /**
+   * Fetch US movie certification from TMDB release_dates endpoint.
+   * Priority: US certification → original country → first available → adult flag fallback.
+   * @param {number} tmdbId - TMDB movie ID
+   * @param {boolean} adult - TMDB adult flag (fallback)
+   * @returns {Promise<string|null>} Certification string (e.g. "R", "PG-13") or null
+   */
+  static async fetchMovieCertification(tmdbId, adult) {
+    try {
+      const releaseDates = await tmdb.movieReleaseDates({ id: tmdbId });
+      const results = releaseDates.results || [];
+
+      // Priority 1: US certification
+      const usRelease = results.find(r => r.iso_3166_1 === 'US');
+      if (usRelease?.release_dates?.length > 0) {
+        const cert = usRelease.release_dates.find(rd => rd.certification && rd.certification.trim());
+        if (cert) return cert.certification;
+      }
+
+      // Priority 2: First available certification from any country
+      for (const release of results) {
+        if (release.release_dates?.length > 0) {
+          const cert = release.release_dates.find(rd => rd.certification && rd.certification.trim());
+          if (cert) return cert.certification;
+        }
+      }
+    } catch (err) {
+      logger.warn({ tmdbId, err: TMDbService.sanitizeError(err) }, 'Failed to fetch certification — using adult flag fallback');
+    }
+
+    // Priority 4: Adult flag fallback
+    return adult ? 'R' : null;
+  }
+
+  /**
    * Sync a movie by TMDB ID — returns normalized data for our Content model
    */
   static async syncMovie(tmdbId) {
@@ -86,6 +120,9 @@ class TMDbService {
         tmdb.movieCredits({ id: tmdbId }),
         tmdb.movieVideos({ id: tmdbId }).catch(() => ({ results: [] })),
       ]);
+
+      // D-013: Fetch actual certification from release_dates (not just adult flag)
+      const contentRating = await TMDbService.fetchMovieCertification(tmdbId, movie.adult);
 
       return {
         tmdbId: movie.id,
@@ -105,7 +142,7 @@ class TMDbService {
         popularity: movie.popularity,
         homepage: movie.homepage,
         imdbId: movie.imdb_id,
-        contentRating: movie.adult ? 'R' : null,
+        contentRating,
         productionCompanies: movie.production_companies?.map(c => c.name) || [],
         videos: videos.results?.slice(0, 5).map(v => ({
           key: v.key,
@@ -131,6 +168,34 @@ class TMDbService {
   // ── Series Syncing ──
 
   /**
+   * Fetch US TV content rating from TMDB content_ratings endpoint.
+   * Priority: US rating → original country → first available → adult flag fallback.
+   * @param {number} tmdbId - TMDB series ID
+   * @param {boolean} adult - TMDB adult flag (fallback)
+   * @returns {Promise<string|null>} Rating string (e.g. "TV-MA", "TV-14") or null
+   */
+  static async fetchSeriesCertification(tmdbId, adult) {
+    try {
+      const contentRatings = await tmdb.tvContentRatings({ id: tmdbId });
+      const results = contentRatings.results || [];
+
+      // Priority 1: US rating
+      const usRating = results.find(r => r.iso_3166_1 === 'US');
+      if (usRating?.rating) return usRating.rating;
+
+      // Priority 2: First available rating from any country
+      for (const entry of results) {
+        if (entry.rating) return entry.rating;
+      }
+    } catch (err) {
+      logger.warn({ tmdbId, err: TMDbService.sanitizeError(err) }, 'Failed to fetch series certification — using adult flag fallback');
+    }
+
+    // Priority 4: Adult flag fallback
+    return adult ? 'TV-MA' : null;
+  }
+
+  /**
    * Sync a TV series by TMDB ID — includes all seasons and episodes
    */
   static async syncSeries(tmdbId) {
@@ -142,6 +207,9 @@ class TMDbService {
         tmdb.tvCredits({ id: tmdbId }),
         tmdb.tvVideos({ id: tmdbId }).catch(() => ({ results: [] })),
       ]);
+
+      // D-013: Fetch actual certification from content_ratings (not just adult flag)
+      const contentRating = await TMDbService.fetchSeriesCertification(tmdbId, series.adult);
 
       const seasonNumbers = series.seasons
         ?.filter(s => s.season_number > 0)
@@ -171,7 +239,7 @@ class TMDbService {
         voteCount: series.vote_count,
         popularity: series.popularity,
         homepage: series.homepage,
-        contentRating: series.adult ? 'TV-MA' : null,
+        contentRating,
         productionCompanies: series.production_companies?.map(c => c.name) || [],
         videos: videos.results?.slice(0, 5).map(v => ({
           key: v.key,
