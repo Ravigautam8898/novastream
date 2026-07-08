@@ -2,6 +2,26 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
+// Standard TMDB genres for Discover navigation
+const GENRES = [
+  { name: 'Action', slug: 'action' },
+  { name: 'Adventure', slug: 'adventure' },
+  { name: 'Comedy', slug: 'comedy' },
+  { name: 'Drama', slug: 'drama' },
+  { name: 'Horror', slug: 'horror' },
+  { name: 'Mystery', slug: 'mystery' },
+  { name: 'Sci-Fi', slug: 'science-fiction' },
+  { name: 'Thriller', slug: 'thriller' },
+];
+
+// Hardcoded categories (existing, preserved)
+const CATEGORIES = [
+  { name: 'Hollywood', slug: 'hollywood', icon: '🇺🇸' },
+  { name: 'Bollywood', slug: 'bollywood', icon: '🇮🇳' },
+  { name: 'Korean', slug: 'korean', icon: '🇰🇷' },
+  { name: 'South Indian', slug: 'south-indian', icon: '🇮🇳' },
+];
+
 export default function Header() {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -39,39 +59,70 @@ export default function Header() {
             <Link to="/" className="text-netflix-text-2 hover:text-white text-sm font-medium transition-colors">
               Home
             </Link>
-            {/* Category dropdown */}
+            {/* D-011: Discover dropdown (renamed from Browse) */}
             <div className="relative group">
               <button className="text-netflix-text-2 hover:text-white text-sm font-medium transition-colors flex items-center gap-1">
-                Browse
+                Discover
                 <svg className="w-3 h-3 mt-0.5 group-hover:rotate-180 transition-transform duration-200" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" />
                 </svg>
               </button>
-              <div className="absolute top-full left-0 mt-2 w-48 bg-netflix-dark-2 border border-netflix-border rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+              <div className="absolute top-full left-0 mt-2 w-52 bg-netflix-dark-2 border border-netflix-border rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                {/* Trending & New Releases */}
                 <Link
-                  to="/category/hollywood"
+                  to="/search?q=trending"
                   className="flex items-center gap-2 px-4 py-2.5 text-sm text-netflix-text-2 hover:text-white hover:bg-netflix-dark-3 transition-colors rounded-t-lg"
                 >
-                  <span>🇺🇸</span> Hollywood
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z" />
+                  </svg>
+                  Trending
                 </Link>
                 <Link
-                  to="/category/bollywood"
+                  to="/search?q=new"
                   className="flex items-center gap-2 px-4 py-2.5 text-sm text-netflix-text-2 hover:text-white hover:bg-netflix-dark-3 transition-colors"
                 >
-                  <span>🇮🇳</span> Bollywood
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z" />
+                  </svg>
+                  New Releases
                 </Link>
-                <Link
-                  to="/category/korean"
-                  className="flex items-center gap-2 px-4 py-2.5 text-sm text-netflix-text-2 hover:text-white hover:bg-netflix-dark-3 transition-colors"
-                >
-                  <span>🇰🇷</span> Korean
-                </Link>
-                <Link
-                  to="/category/south-indian"
-                  className="flex items-center gap-2 px-4 py-2.5 text-sm text-netflix-text-2 hover:text-white hover:bg-netflix-dark-3 transition-colors rounded-b-lg"
-                >
-                  <span>🇮🇳</span> South Indian
-                </Link>
+
+                {/* Divider */}
+                <div className="border-t border-netflix-border/50 my-1" />
+
+                {/* Categories */}
+                <div className="px-4 py-1.5 text-[11px] text-netflix-text-3 uppercase tracking-wider font-semibold">
+                  Categories
+                </div>
+                {CATEGORIES.map((cat) => (
+                  <Link
+                    key={cat.slug}
+                    to={`/category/${cat.slug}`}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-netflix-text-2 hover:text-white hover:bg-netflix-dark-3 transition-colors"
+                  >
+                    <span>{cat.icon}</span> {cat.name}
+                  </Link>
+                ))}
+
+                {/* Divider */}
+                <div className="border-t border-netflix-border/50 my-1" />
+
+                {/* Genres sub-nav */}
+                <div className="px-4 py-1.5 text-[11px] text-netflix-text-3 uppercase tracking-wider font-semibold">
+                  Genres
+                </div>
+                <div className="grid grid-cols-2">
+                  {GENRES.map((genre) => (
+                    <Link
+                      key={genre.slug}
+                      to={`/category/${genre.slug}`}
+                      className="px-4 py-1.5 text-sm text-netflix-text-2 hover:text-white hover:bg-netflix-dark-3 transition-colors"
+                    >
+                      {genre.name}
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
             <Link to="/search" className="text-netflix-text-2 hover:text-white text-sm font-medium transition-colors">

@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { contentApi } from '../api/content.api';
 import { favoritesApi } from '../api/favorites.api';
 import { dedupeContentList } from '../utils/contentIdentity';
@@ -18,14 +17,12 @@ function fetchWithTimeout(promiseFactory, timeoutMs = 10000) {
 }
 
 export default function HomePage() {
-  const navigate = useNavigate();
   const [sections, setSections] = useState([]);
   const [continueWatching, setContinueWatching] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [topTenItems, setTopTenItems] = useState([]);
   const [genreSections, setGenreSections] = useState([]);
-  const [allGenres, setAllGenres] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -91,22 +88,6 @@ export default function HomePage() {
           }
         });
         setGenreSections(validGenres.slice(0, 4)); // Max 4 genre rails
-
-        // D-005: Extract unique flat genre list for quick access chips
-        const allGenres = [];
-        const seenGenres = new Set();
-        rawSections.forEach((section) => {
-          (section.items || []).forEach((item) => {
-            (item.genres || []).forEach((genre) => {
-              const genreName = genre.name || genre;
-              if (!seenGenres.has(genreName)) {
-                seenGenres.add(genreName);
-                allGenres.push({ name: genreName, id: genre.id || genreName });
-              }
-            });
-          });
-        });
-        setAllGenres(allGenres);
       } else {
         setError(
           sectionResult.reason?.response?.data?.message
@@ -216,30 +197,6 @@ export default function HomePage() {
       {/* Hero carousel (first section with hero layout) */}
       {sections[0]?.layout === 'hero' && sections[0]?.items?.length > 0 && (
         <HeroCarousel items={sections[0].items} />
-      )}
-
-      {/* D-005: Genre Quick Access Chips */}
-      {allGenres.length > 0 && (
-        <div className={sections[0]?.layout === 'hero' ? 'pt-4 md:pt-6' : 'pt-20'}>
-          <div className="px-6 md:px-12 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: 'none' }}>
-            <div className="flex gap-2 md:gap-3 pb-2">
-              <span className="flex-shrink-0 text-netflix-text-2 text-xs md:text-sm font-medium py-1.5 px-1">
-                Genres:
-              </span>
-              {allGenres.map((genre) => (
-                <button
-                  key={genre.id}
-                  onClick={() => navigate(`/category/${encodeURIComponent(genre.name.toLowerCase())}`)}
-                  className="flex-shrink-0 text-xs md:text-sm text-netflix-text-2 border border-netflix-border/50
-                    hover:border-netflix-red/60 hover:text-white hover:bg-netflix-red/10
-                    rounded-full px-3 md:px-4 py-1.5 transition-all duration-200 active:scale-95"
-                >
-                  {genre.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Content rows */}

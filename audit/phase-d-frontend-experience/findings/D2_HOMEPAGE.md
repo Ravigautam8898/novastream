@@ -127,6 +127,20 @@
 | **Implementation Phase** | D-Imp-1 |
 | **Status** | OPEN |
 
+### D-011 — Homepage Genre Navigation Placement Issue
+
+| Field | Value |
+|-------|-------|
+| **ID** | D-011 |
+| **Area** | Homepage / Navigation |
+| **Severity** | Medium |
+| **Current** | D-005 genre quick access chips render directly between Continue Watching and Top 10 on the homepage. Genre filters are navigation/discovery controls, not content rails. They interrupt the curated homepage flow. |
+| **Expected OTT behavior** | Netflix/Prime/Disney+: Discovery filtering (genres, categories) lives in the navigation, not on the homepage. The homepage remains a curated browsing experience: Hero → Continue Watching → Top 10 → Trending → Popular → Recommended. |
+| **Root Cause** | D-Imp-1 placed genre chips inline on HomePage.jsx as a content row. They have no business being in the content flow — they're navigation controls. |
+| **Recommended Fix** | 1. Rename "Browse" → "Discover" in Header.jsx. 2. Add genre sub-navigation to the Discover dropdown (Action, Adventure, Comedy, Drama, Horror, Mystery, Sci-Fi, Thriller). 3. Add Trending and New Releases links to the dropdown. 4. Remove genre chips from HomePage.jsx. 5. Keep existing hardcoded categories (Hollywood, Bollywood, Korean, South Indian). |
+| **Implementation Phase** | D-Imp-1 |
+| **Status** | OPEN |
+
 ## Summary
 
 | ID | Title | Severity | Phase | Status |
@@ -140,3 +154,4 @@
 | D-008 | Hero Action Buttons Not Functional | High | D-Imp-1 | 🟡 Fixed |
 | D-009 | Navigation Race Condition | Medium | D-Imp-1 | 🟡 Fixed |
 | D-010 | Homepage Metadata Deduplication Failure | High | D-Imp-1 | 🟡 Fix applied |
+| D-011 | Homepage Genre Navigation Placement Issue | Medium | D-Imp-1 | 🟡 Fix applied |
