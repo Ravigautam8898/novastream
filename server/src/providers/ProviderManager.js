@@ -35,6 +35,12 @@ const PROVIDERS_DIR = path.resolve(__dirname, 'sources');
 const LOCK_TTL_MS = 60 * 1000; // 1 minute lock TTL (covers single provider resolve)
 const MAX_CACHED_KEYS = 100;   // Max entries in in-memory provider health cache
 
+// ── Recovery Constants (C5d) ──
+
+const MAX_RECOVERY_ATTEMPTS = 3;  // Max recovery attempts per user+content+session
+const STORM_WINDOW_MS = 60000;    // 1-minute window for storm tracking
+const recoveryStormCount = new Map(); // stormKey → attempt count
+
 // ── State ──
 
 const registeredProviders = [];  // Array of { provider, source (for discovery) }
@@ -879,6 +885,84 @@ class ProviderManager {
       episode,
       retries: 2,
     });
+  }
+
+  // ── C5d: Stream Recovery (Playback Lifecycle UX) ──
+  //
+  // Orchestrated recovery flow when the player detects a stream failure:
+  //   Phase 1 — Refresh same provider (clear cache, re-resolve)
+  //   Phase 2 — Fallback to next provider (full resolve with multi-provider chain)
+  //   Phase 3 — All exhausted, report unavailable
+  //
+  // Retry storm protection prevents infinite recovery loops:
+  //   - Max 3 recovery attempts per user+content+session
+  //   - Storm window resets after 60 seconds of no recovery activity
+
+  /**
+   * Recover from a stream playback failure.
+   *
+   * Two-phase recovery:
+   *   1. Refresh the current provider (clear cache, re-resolve same provider)
+   *   2. Fallback to next provider (resolve() tries all provider mappings)
+   *
+   * Retry storm protection: max 3 attempts per user+content+session.
+   * Quality preference is preserved throughout both phases.
+   *
+   * @param {Object} params
+   * @param {string} params.slug - Content slug
+   * @param {string} params.contentType - 'movie' or 'series'
+   * @param {string} [params.quality] - Preferred quality (preserved during recovery)
+   * @param {number} [params.season] - Season number (series)
+   * @param {number} [params.episode] - Episode number (series)
+   * @param {string} [params.userId] - User ID for storm protection
+   * @returns {Promise<{url: string, expiresAt: number, provider: string, allQualities?: Array}>}
+   */
+  static async recoverStream({ slug, contentType, quality, season, episode, userId }) {
+    const stormKey = `${userId || 'anonymous'}:${slug}:${contentType}:${season || 1}:${episode || 1}`;
+    const currentAttempts = recoveryStormCount.get(stormKey) || 0;
+
+    // ── Retry Storm Protection ──
+    if (currentAttempts >= MAX_RECOVERY_ATTEMPTS) {
+      logger.warn({ slug, userId, attempts: currentAttempts }, 'ProviderManager: recovery storm limit reached');
+      throw ApiError.internal('Stream temporarily unavailable');
+    }
+
+    // Increment attempt counter (auto-expires after STORM_WINDOW_MS)
+    recoveryStormCount.set(stormKey, currentAttempts + 1);
+    if (currentAttempts === 0) {
+      // Set cleanup timeout only on first attempt
+      setTimeout(() => {
+        recoveryStormCount.delete(stormKey);
+      }, STORM_WINDOW_MS);
+    }
+
+    // ── Phase 1: Refresh same provider (clear cache, re-resolve) ──
+    logger.info({ slug, attempt: currentAttempts + 1 }, 'ProviderManager: recovery phase 1 — refresh same provider');
+    try {
+      const result = await this.refresh({ slug, contentType, quality, season, episode });
+      // Success — reset storm counter
+      recoveryStormCount.delete(stormKey);
+      logger.info({ slug, provider: result.provider }, 'ProviderManager: recovery phase 1 succeeded');
+      return result;
+    } catch (err) {
+      logger.warn({ slug, err: err.message }, 'ProviderManager: recovery phase 1 failed — same provider refresh unsuccessful');
+    }
+
+    // ── Phase 2: Fallback to next provider (full resolve chain) ──
+    logger.info({ slug, attempt: currentAttempts + 1 }, 'ProviderManager: recovery phase 2 — fallback provider chain');
+    try {
+      // Full resolve() tries all provider mappings in order (multi-provider fallback)
+      const result = await this.resolve({ slug, contentType, quality, season, episode });
+      // Success — reset storm counter
+      recoveryStormCount.delete(stormKey);
+      logger.info({ slug, provider: result.provider }, 'ProviderManager: recovery phase 2 succeeded — fallback provider resolved');
+      return result;
+    } catch (err) {
+      logger.warn({ slug, err: err.message }, 'ProviderManager: recovery phase 2 failed — all providers exhausted');
+    }
+
+    // ── Phase 3: All recovery paths exhausted ──
+    throw ApiError.internal('Stream temporarily unavailable');
   }
 
   /**

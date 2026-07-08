@@ -40,7 +40,7 @@ NovaStream currently has **three independent governance tracks** that run in par
 | **Phase C5a** | Metadata Provider System — Framework, TMDB adapter, ContentService integration ✅ 🟡 ACTIVE |
 | **Phase C5b** | Nova Identity Registration — registerOrUpdate(), safe merge, audit script ✅ 🟡 ACTIVE |
 | **Phase C5c** | TMDB Bridge Removal — frontend tmdb-* detection removed, slug-only navigation ✅ 🟡 ACTIVE |
-| **Phase C5d** | Playback Recovery + Stream Lifecycle UX — expired URL, 401/403/410, network failure handling ❌ PENDING |
+| **Phase C5d** | Playback Recovery + Stream Lifecycle UX — recoverStream(), 3-tier recovery, retry storm protection ✅ 🟡 ACTIVE |
 | **Phase C5e** | Auto Provider Source UI — Auto mode default, Fast/Backup source labels ❌ PENDING |
 | **Proposal** | `phase-c-provider-system/FINDINGS.md` |
 | **SDK Guide** | `phase-c-provider-system/PROVIDER_DEVELOPMENT.md` |

@@ -51,6 +51,26 @@ export const externalSourceApi = {
   },
 
   /**
+   * Recover from a stream playback failure.
+   * C5d: Two-phase recovery — refreshes same provider, then falls back to next.
+   * Includes retry storm protection (max 3 per user+content+session).
+   * Quality preference is preserved during recovery.
+   *
+   * @param {Object} params - Same as play()
+   * @returns {Promise<{url: string, expiresAt: number, qualities: Array|null, provider: string|null, recovered: boolean}>}
+   */
+  recover: async ({ slug, contentType, quality, season, episode }) => {
+    const { data } = await apiClient.post('/external/recover', {
+      slug,
+      contentType,
+      quality,
+      season,
+      episode,
+    });
+    return data.data;
+  },
+
+  /**
    * Check what streams are available for content (without fetching a URL).
    *
    * @param {string} slug - NovaStream content slug

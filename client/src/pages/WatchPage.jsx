@@ -46,6 +46,12 @@ export default function WatchPage() {
   const [playbackError, setPlaybackError] = useState(null);
   const [availableQualities, setAvailableQualities] = useState(null);
 
+  // C5d: Playback recovery state
+  const [recoveryStatus, setRecoveryStatus] = useState('idle'); // 'idle' | 'refreshing' | 'fallback' | 'failed'
+  const [currentQuality, setCurrentQuality] = useState('720p');
+  const recoveryAttemptsRef = useRef(0);
+  const recoveryLockRef = useRef(false);
+
   // Episode selector state (series only)
   const [selectedEpisode, setSelectedEpisode] = useState(null);
 
@@ -430,6 +436,9 @@ export default function WatchPage() {
     setSelectedEpisode(episode);
     setPlaybackError(null); // Reset any previous playback error
     setSavedProgress(0);    // Reset saved progress; will re-fetch
+    setRecoveryStatus('idle');
+    recoveryAttemptsRef.current = 0;
+    recoveryLockRef.current = false;
   }, []);
 
   // ── Render ──
@@ -476,11 +485,11 @@ export default function WatchPage() {
   const actualStreamUrl = useExternalStream ? externalStream.url : streamUrl;
   const actualQualities = useExternalStream ? availableQualities : availableQualities;
   const hasStreamUrl = !!(externalStream?.url || streamUrl);
-  const showPlayer = hasStreamUrl && !playbackError;
+  const showPlayer = hasStreamUrl && !playbackError && recoveryStatus !== 'failed';
   // Only show loading spinner on initial load (no stream URL yet).
   // During episode switches, the old stream keeps the player alive;
   // ArtPlayer's built-in loading indicator handles the brief transition.
-  const showPlayerLoading = !hasStreamUrl && (streamLoading || externalStreamLoading) && !playbackError;
+  const showPlayerLoading = !hasStreamUrl && (streamLoading || externalStreamLoading) && !playbackError && recoveryStatus === 'idle';
 
   // Hide header when player is in full-viewport mobile mode
   const isMobileFullscreen = showPlayer && isPortrait;
@@ -538,7 +547,20 @@ export default function WatchPage() {
           </div>
         )}
 
-        {playbackError === 'STREAM_NOT_AVAILABLE' && (
+        {/* C5d: Recovery active overlay */}
+        {(recoveryStatus === 'refreshing' || recoveryStatus === 'fallback') && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm text-center px-6">
+            <div className="w-10 h-10 border-2 border-netflix-red border-t-transparent rounded-full animate-spin mb-4" />
+            <p className="text-white text-sm font-medium">
+              Recovering playback...
+            </p>
+            <p className="text-netflix-text-3 text-xs mt-1">
+              {recoveryStatus === 'refreshing' ? 'Refreshing stream source' : 'Trying alternative source'}
+            </p>
+          </div>
+        )}
+
+        {(playbackError === 'STREAM_NOT_AVAILABLE' || recoveryStatus === 'failed') && (
           <div className="w-full h-full flex flex-col items-center justify-center bg-netflix-dark text-center px-6">
             <div className="w-16 h-16 rounded-full bg-netflix-dark-3 flex items-center justify-center mb-4">
               <svg className="w-8 h-8 text-netflix-text-3" viewBox="0 0 24 24" fill="currentColor">
@@ -548,7 +570,7 @@ export default function WatchPage() {
             <h3 className="text-white text-lg font-semibold mb-2">Stream Unavailable</h3>
             <p className="text-netflix-text-2 text-sm max-w-md mb-4">
               {item?.sourceId
-                ? 'This content is from an external source that is currently unavailable. Please try again later.'
+                ? 'Stream temporarily unavailable. Please try again later.'
                 : 'Stream source unavailable. A provider will be connected in a future update.'}
             </p>
             <button onClick={() => navigate(-1)} className="btn-primary">
@@ -586,7 +608,103 @@ export default function WatchPage() {
               poster={backdropUrl}
               title={currentTitle}
               autoplay
-              onError={(err) => setPlaybackError(err.message || 'Playback failed')}
+              currentQuality={currentQuality}
+              onError={(err) => {
+                // C5d: On playback error, trigger recovery flow instead of immediately failing
+                (async () => {
+                  const errorMsg = err?.message || err?.toString() || 'Playback failed';
+
+                  // Skip recovery for specific non-recoverable errors
+                  if (errorMsg.includes('Stream temporarily unavailable')) {
+                    setRecoveryStatus('failed');
+                    setPlaybackError('STREAM_NOT_AVAILABLE');
+                    return;
+                  }
+
+                  // Prevent concurrent recovery calls
+                  if (recoveryLockRef.current) return;
+                  recoveryLockRef.current = true;
+
+                  try {
+                    const attempts = recoveryAttemptsRef.current + 1;
+                    recoveryAttemptsRef.current = attempts;
+
+                    if (attempts >= 3) {
+                      setRecoveryStatus('failed');
+                      setPlaybackError('STREAM_NOT_AVAILABLE');
+                      return;
+                    }
+
+                    const contentType = isMovie ? 'movie' : 'series';
+                    const params = {
+                      slug,
+                      contentType,
+                      quality: currentQuality,
+                      ...(!isMovie && selectedEpisode?.seasonNumber && selectedEpisode?.episodeNumber
+                        ? { season: selectedEpisode.seasonNumber, episode: selectedEpisode.episodeNumber }
+                        : {}),
+                    };
+
+                    // Phase 1: Refresh same provider
+                    if (attempts === 1) {
+                      setRecoveryStatus('refreshing');
+                      try {
+                        const result = await externalSourceApi.refresh(params);
+                        if (result?.url) {
+                          if (externalStream) {
+                            setExternalStream({ url: result.url, expiresAt: result.expiresAt });
+                          } else {
+                            setStreamUrl(result.url);
+                          }
+                          if (result.qualities) {
+                            setAvailableQualities(result.qualities.map(q => ({
+                              quality: q.quality,
+                              url: q.url,
+                            })));
+                          }
+                          setRecoveryStatus('idle');
+                          recoveryAttemptsRef.current = 0;
+                          setPlaybackError(null);
+                          return;
+                        }
+                      } catch {
+                        // Phase 1 failed — fall through to phase 2
+                      }
+                    }
+
+                    // Phase 2: Fallback with recover (also reached if phase 1 failed)
+                    setRecoveryStatus('fallback');
+                    try {
+                      const result2 = await externalSourceApi.recover(params);
+                      if (result2?.url) {
+                        if (externalStream) {
+                          setExternalStream({ url: result2.url, expiresAt: result2.expiresAt });
+                        } else {
+                          setStreamUrl(result2.url);
+                        }
+                        if (result2.qualities) {
+                          setAvailableQualities(result2.qualities.map(q => ({
+                            quality: q.quality,
+                            url: q.url,
+                          })));
+                        }
+                        setRecoveryStatus('idle');
+                        recoveryAttemptsRef.current = 0;
+                        setPlaybackError(null);
+                        return;
+                      }
+                    } catch {
+                      // Phase 2 failed — fall through to failed
+                    }
+
+                    // Phase 3: All recovery paths exhausted
+                    setRecoveryStatus('failed');
+                    setPlaybackError('STREAM_NOT_AVAILABLE');
+                  } finally {
+                    recoveryLockRef.current = false;
+                  }
+                })();
+              }}
               onTimeUpdate={handleTimeUpdate}
               onPiPChange={handlePiPChange}
             />

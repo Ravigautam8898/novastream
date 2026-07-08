@@ -115,6 +115,61 @@ router.post('/refresh', async (req, res, next) => {
 });
 
 /**
+ * POST /api/external/recover
+ * Recover from a stream playback failure with two-phase recovery.
+ * C5d: Orchestrated recovery — Phase 1 refresh, Phase 2 fallback.
+ * Includes retry storm protection (max 3 per user+content+session).
+ *
+ * Body: Same as /play (quality is preserved during recovery)
+ * Response: Same as /play (on success) or 503 "Stream temporarily unavailable"
+ */
+router.post('/recover', async (req, res, next) => {
+  try {
+    const { slug, contentType, quality, season, episode } = req.body;
+
+    if (!slug || !contentType) {
+      throw ApiError.badRequest('slug and contentType are required');
+    }
+
+    if (!['movie', 'series'].includes(contentType)) {
+      throw ApiError.badRequest('contentType must be "movie" or "series"');
+    }
+
+    const userId = req.user?._id?.toString();
+
+    const ProviderManager = require('../providers/ProviderManager');
+    const result = await ProviderManager.recoverStream({
+      slug,
+      contentType,
+      quality,
+      season: season ? parseInt(season, 10) : undefined,
+      episode: episode ? parseInt(episode, 10) : undefined,
+      userId,
+    });
+
+    const response = {
+      url: result.url,
+      expiresAt: result.expiresAt,
+      qualities: result.allQualities || null,
+      provider: result.provider || null,
+      recovered: true,
+    };
+
+    ApiResponse.success(res, response, 'Stream recovered');
+  } catch (err) {
+    if (err.message === 'Stream temporarily unavailable') {
+      // Clean error — no technical details exposed
+      return res.status(503).json({
+        success: false,
+        message: 'Stream temporarily unavailable',
+        timestamp: new Date().toISOString(),
+      });
+    }
+    next(err);
+  }
+});
+
+/**
  * GET /api/external/stream-info/:slug
  * Check what streams are available for a content item.
  * Does NOT fetch a stream URL — just checks availability and qualities.

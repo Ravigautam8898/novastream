@@ -1036,6 +1036,37 @@ The legacy single `sourceId`/`sourceSite` must be replaced with a structured pro
 - `client/src/pages/WatchPage.jsx` — removed tmdb- detection
 
 - **C5d (pending):** Playback Recovery + Stream Lifecycle UX
+
+**C5d Status:** ✅ COMPLETE — Playback Recovery + Stream Lifecycle UX
+
+**Backend changes:**
+- `ProviderManager.recoverStream()` — Two-phase recovery with retry storm protection
+  - Phase 1: `refresh()` — clear cache, re-resolve same provider
+  - Phase 2: `resolve()` — full provider fallback chain (multi-provider fallback)
+  - Storm protection: max 3 attempts per user+content+session, 60s rolling window
+  - Clean user-facing error: "Stream temporarily unavailable" (no technical details)
+- `POST /api/external/recover` — New endpoint delegating to recoverStream()
+  - Returns 503 on all-providers-exhausted (clean message, no technical errors)
+  - Passes userId for storm tracking
+  - Preserves quality param for recovery
+
+**Frontend changes:**
+- WatchPage.jsx — 3-tier recovery flow:
+  - Tier 1: `externalSourceApi.refresh()` — same provider, new URL (shows "Recovering playback...")
+  - Tier 2: `externalSourceApi.recover()` — fallback provider chain
+  - Tier 3: All exhausted → "Stream temporarily unavailable" message
+  - `recoveryLockRef` prevents concurrent recovery calls
+  - `recoveryAttemptsRef` (ref-based) avoids stale closure issues in onError callback
+  - Recovery state resets on episode switch
+  - Quality preserved via `currentQuality` state passed to all recovery API calls
+  - Recovery overlay with progress indicator and status text
+
+**Retry storm protection design:**
+- Same user + content + session: max 3 recovery attempts
+- 60-second rolling window from first attempt
+- Storm key format: `{userId}:{slug}:{contentType}:{season}:{episode}`
+- Cleared on successful recovery; auto-expires after window
+
 - **C5e (pending):** Auto Provider Source UI
 
 ### Phase C6 — Auto Provider Source UI (Future)
