@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { contentApi } from '../api/content.api';
 import { favoritesApi } from '../api/favorites.api';
 import Header from '../components/layout/Header';
@@ -16,10 +17,14 @@ function fetchWithTimeout(promiseFactory, timeoutMs = 10000) {
 }
 
 export default function HomePage() {
+  const navigate = useNavigate();
   const [sections, setSections] = useState([]);
   const [continueWatching, setContinueWatching] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
+  const [topTenItems, setTopTenItems] = useState([]);
+  const [genreSections, setGenreSections] = useState([]);
+  const [allGenres, setAllGenres] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -42,7 +47,65 @@ export default function HomePage() {
 
       // Sections — primary data source
       if (sectionResult.status === 'fulfilled') {
-        setSections(Array.isArray(sectionResult.value) ? sectionResult.value : []);
+        const rawSections = Array.isArray(sectionResult.value) ? sectionResult.value : [];
+        setSections(rawSections);
+
+        // D-002: Extract Top 10 items — weighted sort by voteAverage + popularity
+        // Items with both metrics get a combined score; ties broken by popularity
+        const trendingItems = rawSections
+          .flatMap((s) => s.items || [])
+          .filter((item) => item.voteAverage || item.popularity)
+          .sort((a, b) => {
+            const scoreA = (a.voteAverage || 0) * 10 + Math.min((a.popularity || 0) / 10, 10);
+            const scoreB = (b.voteAverage || 0) * 10 + Math.min((b.popularity || 0) / 10, 10);
+            return scoreB - scoreA;
+          })
+          .slice(0, 10);
+        if (trendingItems.length >= 3) {
+          setTopTenItems(trendingItems);
+        }
+
+        // D-003: Extract unique genres from all items for genre rails
+        const genreMap = new Map();
+        rawSections.forEach((section) => {
+          (section.items || []).forEach((item) => {
+            (item.genres || []).forEach((genre) => {
+              const genreName = genre.name || genre;
+              if (!genreMap.has(genreName)) {
+                genreMap.set(genreName, []);
+              }
+              // Avoid duplicate items in genre rails
+              const existingIds = genreMap.get(genreName).map((i) => i._id || i.tmdbId);
+              if (!existingIds.includes(item._id || item.tmdbId)) {
+                genreMap.get(genreName).push(item);
+              }
+            });
+          });
+        });
+        // Only include genres with at least 4 items
+        const validGenres = [];
+        genreMap.forEach((items, name) => {
+          if (items.length >= 4) {
+            validGenres.push({ name, items: items.slice(0, 20) });
+          }
+        });
+        setGenreSections(validGenres.slice(0, 4)); // Max 4 genre rails
+
+        // D-005: Extract unique flat genre list for quick access chips
+        const allGenres = [];
+        const seenGenres = new Set();
+        rawSections.forEach((section) => {
+          (section.items || []).forEach((item) => {
+            (item.genres || []).forEach((genre) => {
+              const genreName = genre.name || genre;
+              if (!seenGenres.has(genreName)) {
+                seenGenres.add(genreName);
+                allGenres.push({ name: genreName, id: genre.id || genreName });
+              }
+            });
+          });
+        });
+        setAllGenres(allGenres);
       } else {
         setError(
           sectionResult.reason?.response?.data?.message
@@ -154,6 +217,30 @@ export default function HomePage() {
         <HeroCarousel items={sections[0].items} />
       )}
 
+      {/* D-005: Genre Quick Access Chips */}
+      {allGenres.length > 0 && (
+        <div className={sections[0]?.layout === 'hero' ? 'pt-4 md:pt-6' : 'pt-20'}>
+          <div className="px-6 md:px-12 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: 'none' }}>
+            <div className="flex gap-2 md:gap-3 pb-2">
+              <span className="flex-shrink-0 text-netflix-text-2 text-xs md:text-sm font-medium py-1.5 px-1">
+                Genres:
+              </span>
+              {allGenres.map((genre) => (
+                <button
+                  key={genre.id}
+                  onClick={() => navigate(`/category/${encodeURIComponent(genre.name.toLowerCase())}`)}
+                  className="flex-shrink-0 text-xs md:text-sm text-netflix-text-2 border border-netflix-border/50
+                    hover:border-netflix-red/60 hover:text-white hover:bg-netflix-red/10
+                    rounded-full px-3 md:px-4 py-1.5 transition-all duration-200 active:scale-95"
+                >
+                  {genre.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content rows */}
       <div className={sections[0]?.layout === 'hero' ? '-mt-16 md:-mt-20 relative z-10' : 'pt-20'}>
         {/* My List (Favorites) — only shown when user has items */}
@@ -195,6 +282,19 @@ export default function HomePage() {
           />
         )}
 
+        {/* D-002: Top 10 Ranking Rail */}
+        {topTenItems.length >= 3 && (
+          <ContentRow
+            title="Top 10 Today"
+            items={topTenItems}
+            layout="row"
+            showRank={true}
+            showNewBadge={false}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={handleToggleFavorite}
+          />
+        )}
+
         {sections.map((section) => {
           // Skip hero section (already rendered above)
           if (section.layout === 'hero') return null;
@@ -205,9 +305,25 @@ export default function HomePage() {
               title={section.title}
               items={section.items}
               layout={section.layout}
+              showNewBadge={true}
+              favoriteIds={favoriteIds}
+              onToggleFavorite={handleToggleFavorite}
             />
           );
         })}
+
+        {/* D-003: Genre Rails — group items by genre */}
+        {genreSections.map((genreSection) => (
+          <ContentRow
+            key={`genre-${genreSection.name}`}
+            title={`${genreSection.name} Movies`}
+            items={genreSection.items}
+            layout="row"
+            showNewBadge={true}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={handleToggleFavorite}
+          />
+        ))}
       </div>
     </div>
   );

@@ -12,16 +12,17 @@
 | D5 | Search & Navigation Audit | ✅ Complete 🔒 FROZEN | See D5_SEARCH_NAVIGATION.md | ✅ |
 | D6 | Mobile & Responsive Audit | ✅ Complete 🔒 FROZEN | See D6_MOBILE_RESPONSIVE.md | ✅ |
 | D7 | Performance Audit | ✅ Complete 🔒 FROZEN | See D7_PERFORMANCE.md | ✅ |
+| D-Imp-1 | Homepage Experience Upgrade | 🟡 Implementation Complete | 7 findings | ⏳ Awaiting user browser test |
 
 ## Finding Summary
 
 | Severity | Count |
 |:--------:|:-----:|
 | Critical | 0 |
-| High | 3 |
-| Medium | 11 |
-| Low | 11 |
-| **Total** | **25** |
+| High | 3 → 1 (D-008 fixed) |
+| Medium | 11 → 6 (5 fixed) |
+| Low | 11 → 6 (5 fixed) |
+| **Total** | **25 → 13 (7 fixed, 12 open)** |
 
 ## Current Session
 
@@ -29,5 +30,5 @@
 |-------|-------|
 | Started | July 8, 2026 |
 | Phase | D-Imp-1 — Homepage Experience Upgrade |
-| Status | Track D structure frozen. Remediation proposal drafted for D-Imp-1, awaiting user approval. |
-| Next | User approval → Implementation → Build → Browser Test → Regression → Certification |
+| Status | Implementation complete. 7 findings resolved. Build ✅ Tests ✅. Awaiting browser test confirmation. |
+| Next | Browser test → Certify D-Imp-1 → Start D-Imp-2 (Detail Page) |

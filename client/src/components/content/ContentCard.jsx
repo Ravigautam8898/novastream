@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { contentApi } from '../../api/content.api';
 import { TMDB_IMAGE_BASE } from '../../config/images';
+import { useNavigationLock } from '../../hooks/useNavigationLock';
 
 /**
  * ContentCard — Netflix-style content card with hover preview.
@@ -20,12 +21,14 @@ import { TMDB_IMAGE_BASE } from '../../config/images';
  *   - progressPercent: Number 0-100 for progress bar display
  *   - onDismiss: Callback — fired when user clicks dismiss button (e.g. remove from continue watching)
  */
-export default function ContentCard({ item, progressPercent, onDismiss, isFavorited, onToggleFavorite }) {
+export default function ContentCard({ item, progressPercent, onDismiss, isFavorited, onToggleFavorite, rank, showNewBadge }) {
   const navigate = useNavigate();
+  const { withNavigation } = useNavigationLock();
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [panelPosition, setPanelPosition] = useState('below'); // 'below' | 'above' | 'left' | 'right'
+  const [registering, setRegistering] = useState(false);
   const cardRef = useRef(null);
 
   const posterUrl = item.posterPath
@@ -45,28 +48,39 @@ export default function ContentCard({ item, progressPercent, onDismiss, isFavori
   const contentType = item.contentType || 'movie';
   const slug = item.slug;
   const tmdbId = item.tmdbId;
-  const [registering, setRegistering] = useState(false);
+
+  // D-004: Determine if item qualifies for a "New" badge
+  const isNew = showNewBadge || (() => {
+    if (!item.firstAirDate && !item.releaseDate) return false;
+    const dateStr = item.firstAirDate || item.releaseDate;
+    const releaseDate = new Date(dateStr);
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    return releaseDate > threeMonthsAgo;
+  })();
 
   const handleClick = async () => {
-    if (slug) {
-      // Standard navigation: content has Nova slug
-      navigate(`/watch/${contentType}/${slug}`);
-    } else if (tmdbId && !registering) {
-      // C5c: TMDB-only item — register via backend, get Nova slug, then navigate
-      setRegistering(true);
-      try {
-        const content = contentType === 'movie'
-          ? await contentApi.getMovieByTmdbId(tmdbId)
-          : await contentApi.getSeriesByTmdbId(tmdbId);
-        if (content?.slug) {
-          navigate(`/watch/${contentType}/${content.slug}`);
+    await withNavigation(async () => {
+      if (slug) {
+        // Standard navigation: content has Nova slug
+        navigate(`/watch/${contentType}/${slug}`);
+      } else if (tmdbId && !registering) {
+        // C5c: TMDB-only item — register via backend, get Nova slug, then navigate
+        setRegistering(true);
+        try {
+          const content = contentType === 'movie'
+            ? await contentApi.getMovieByTmdbId(tmdbId)
+            : await contentApi.getSeriesByTmdbId(tmdbId);
+          if (content?.slug) {
+            navigate(`/watch/${contentType}/${content.slug}`);
+          }
+        } catch (err) {
+          console.warn('Failed to register content:', err.message);
+        } finally {
+          setRegistering(false);
         }
-      } catch (err) {
-        console.warn('Failed to register content:', err.message);
-      } finally {
-        setRegistering(false);
       }
-    }
+    });
   };
 
   const handleKeyDown = (e) => {
@@ -148,9 +162,33 @@ export default function ContentCard({ item, progressPercent, onDismiss, isFavori
             />
           )}
 
+          {/* ── D-002: Top 10 rank badge ── */}
+          {rank !== undefined && rank <= 10 && (
+            <div className="absolute top-0 left-0 z-20">
+              <div className="flex items-start">
+                <span className="text-[2.5rem] md:text-[3rem] font-extrabold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-none"
+                  style={{
+                    textShadow: '-1px -1px 0 rgba(0,0,0,0.6), 1px -1px 0 rgba(0,0,0,0.6), -1px 1px 0 rgba(0,0,0,0.6), 1px 1px 0 rgba(0,0,0,0.6)',
+                  }}
+                >
+                  {rank}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ── D-004: New badge — shifts to left side when dismiss button is present ── */}
+          {isNew && (
+            <div className={`absolute top-2 z-20 ${onDismiss ? 'left-2' : 'right-2'}`}>
+              <span className="bg-netflix-red text-white text-[10px] font-bold px-2 py-0.5 rounded-sm uppercase tracking-wider shadow-md animate-pulse">
+                New
+              </span>
+            </div>
+          )}
+
           {/* ── Dismiss button (e.g. remove from continue watching) ── */}
           {onDismiss && (
-            <div className="absolute top-1 right-1 z-20">
+            <div className="absolute top-1 right-1 z-30">
               <button
                 onClick={(e) => {
                   e.stopPropagation();

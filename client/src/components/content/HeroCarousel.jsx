@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { TMDB_IMAGE_BASE } from '../../config/images';
+import { contentApi } from '../../api/content.api';
+import { useNavigationLock } from '../../hooks/useNavigationLock';
 const AUTOPLAY_INTERVAL = 6000; // 6 seconds per slide
 const TRANSITION_DURATION = 700; // ms for slide transition
 
@@ -17,13 +20,68 @@ const TRANSITION_DURATION = 700; // ms for slide transition
  *   - Responsive (mobile → tablet → desktop)
  */
 export default function HeroCarousel({ items }) {
+  const navigate = useNavigate();
+  const { withNavigation } = useNavigationLock();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
+  const registeringRef = useRef(false);
   const intervalRef = useRef(null);
   const carouselRef = useRef(null);
   const isTransitioningRef = useRef(false); // FE-010: ref avoids stale closure in callbacks
   const preloadImagesRef = useRef([]);       // FE-010: ref-based tracking, no re-renders per image
+
+  // Unified TMDB registration for hero items (uses ref, no re-renders)
+  // Handles content that doesn't have a Nova slug yet
+  const registerAndNavigate = useCallback(async (item, contentType, pathSuffix = '') => {
+    if (!item.tmdbId || registeringRef.current) return null;
+    registeringRef.current = true;
+    try {
+      const content = contentType === 'movie'
+        ? await contentApi.getMovieByTmdbId(item.tmdbId)
+        : await contentApi.getSeriesByTmdbId(item.tmdbId);
+      if (content?.slug) {
+        navigate(`/watch/${contentType}/${content.slug}${pathSuffix}`);
+      }
+    } catch (err) {
+      console.warn('Hero registration failed:', err.message);
+    } finally {
+      registeringRef.current = false;
+    }
+  }, [navigate]);
+
+  // D-008: Navigate to WatchPage via Nova slug
+  const handlePlay = useCallback(async () => {
+    const item = items[currentIndex];
+    if (!item) return;
+    await withNavigation(async () => {
+      const contentType = item.contentType || 'movie';
+      if (item.slug) {
+        navigate(`/watch/${contentType}/${item.slug}/play`);
+      } else if (item.tmdbId) {
+        await registerAndNavigate(item, contentType, '/play');
+      }
+    });
+  }, [items, currentIndex, withNavigation, navigate, registerAndNavigate]);
+
+  // D-008: Navigate to DetailPage via Nova slug
+  const handleMoreInfo = useCallback(async () => {
+    const item = items[currentIndex];
+    if (!item) return;
+    await withNavigation(async () => {
+      const contentType = item.contentType || 'movie';
+      if (item.slug) {
+        navigate(`/watch/${contentType}/${item.slug}`);
+      } else if (item.tmdbId) {
+        await registerAndNavigate(item, contentType, '');
+      }
+    });
+  }, [items, currentIndex, withNavigation, navigate, registerAndNavigate]);
+
+  // D-001: Check if current item has a trailer URL
+  const hasTrailer = useCallback(() => {
+    return items[currentIndex]?.trailerUrl || null;
+  }, [items, currentIndex]);
 
   const totalSlides = items?.length || 0;
 
@@ -268,18 +326,44 @@ export default function HeroCarousel({ items }) {
 
           {/* Action buttons */}
           <div className="flex items-center gap-3 md:gap-4 animate-slide-up">
-            <button className="flex items-center gap-2 bg-white hover:bg-white/90 text-black font-semibold px-5 md:px-8 py-2 md:py-3 rounded text-sm md:text-base transition-all duration-200 hover:scale-105 active:scale-95 shadow-xl">
+            {/* D-008: Play button — navigates to WatchPage using Nova slug */}
+            <button
+              onClick={handlePlay}
+              className="flex items-center gap-2 bg-white hover:bg-white/90 text-black font-semibold px-5 md:px-8 py-2 md:py-3 rounded text-sm md:text-base transition-all duration-200 hover:scale-105 active:scale-95 shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
+            >
               <svg className="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M8 5v14l11-7z" />
               </svg>
               Play
             </button>
-            <button className="flex items-center gap-2 bg-netflix-dark-3/80 hover:bg-netflix-dark-3 text-white font-semibold px-5 md:px-8 py-2 md:py-3 rounded text-sm md:text-base transition-all duration-200 hover:scale-105 active:scale-95 shadow-xl border border-white/10">
+
+            {/* D-008: More Info button — navigates to DetailPage using Nova slug */}
+            <button
+              onClick={handleMoreInfo}
+              className="flex items-center gap-2 bg-netflix-dark-3/80 hover:bg-netflix-dark-3 text-white font-semibold px-5 md:px-8 py-2 md:py-3 rounded text-sm md:text-base transition-all duration-200 hover:scale-105 active:scale-95 shadow-xl border border-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
               <svg className="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
               </svg>
               More Info
             </button>
+
+            {/* D-001: Trailer preview hook — shown when item has a trailerUrl */}
+            {currentItem.trailerUrl && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(currentItem.trailerUrl, '_blank', 'noopener,noreferrer');
+                }}
+                className="flex items-center gap-2 bg-transparent hover:bg-white/10 text-white border border-white/30 hover:border-white/60 font-semibold px-4 md:px-6 py-2 md:py-3 rounded text-sm md:text-base transition-all duration-200 hover:scale-105 active:scale-95"
+                aria-label="Watch trailer"
+              >
+                <svg className="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
+                </svg>
+                Trailer
+              </button>
+            )}
           </div>
         </div>
       </div>

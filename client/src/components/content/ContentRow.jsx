@@ -18,7 +18,7 @@ import ContentCard from './ContentCard';
  *   - layout: 'row' or 'hero'
  *   - onDismiss: Callback(item) — fired when user removes item from continue watching
  */
-export default function ContentRow({ title, items, layout = 'row', onDismiss, favoriteIds, onToggleFavorite }) {
+export default function ContentRow({ title, items, layout = 'row', onDismiss, favoriteIds, onToggleFavorite, showRank, showNewBadge }) {
   const scrollRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -168,6 +168,8 @@ export default function ContentRow({ title, items, layout = 'row', onDismiss, fa
             >
               <ContentCard
                 item={item}
+                rank={showRank ? index + 1 : undefined}
+                showNewBadge={showNewBadge}
                 onDismiss={onDismiss ? () => onDismiss(item) : undefined}
                 isFavorited={favoriteIds?.has(item._id) || favoriteIds?.has(item.tmdbId)}
                 onToggleFavorite={onToggleFavorite}
