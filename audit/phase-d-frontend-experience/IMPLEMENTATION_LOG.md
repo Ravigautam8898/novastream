@@ -9,7 +9,7 @@
 ## D-Imp-1 — Homepage Experience Upgrade
 
 **Date:** Not started
-**Findings Addressed:** D-001, D-002, D-003, D-004, D-005
+**Findings Addressed:** D-001, D-002, D-003, D-004, D-005, D-008, D-009
 **Status:** 🟡 Proposal drafted — awaiting user approval
 
 ---
