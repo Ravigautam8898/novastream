@@ -28,7 +28,9 @@
 - D-003: Auto-generated genre rails — items grouped by genre (min 4 items per rail, max 4 rails).
 - D-004: "New" badge on ContentCard — checks firstAirDate/releaseDate within 3 months. Shifts to left side when dismiss button present.
 
-**Build Result:** ✅ PASS (8.34s, zero warnings)
+**D-010 Fix:** Added `dedupeContentList()` utility in `client/src/utils/contentIdentity.js`. Identity priority: _id → slug → metadataSources.tmdb.id → tmdbId → imdbId → contentType+title+year fallback. Applied to Top 10 extraction (before sort+slice) and genre rail grouping (before genre iteration). Replaces manual `_id || tmdbId` local dedup with shared utility.
+
+**Build Result:** ✅ PASS (5.36s, zero warnings)
 **Tests:** ✅ PASS (52/52, zero regressions)
 **Browser Test:** ⏳ PENDING
 **Regression:** ✅ PASS

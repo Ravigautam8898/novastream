@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { contentApi } from '../api/content.api';
 import { favoritesApi } from '../api/favorites.api';
+import { dedupeContentList } from '../utils/contentIdentity';
 import Header from '../components/layout/Header';
 import HeroCarousel from '../components/content/HeroCarousel';
 import ContentRow from '../components/content/ContentRow';
@@ -51,9 +52,11 @@ export default function HomePage() {
         setSections(rawSections);
 
         // D-002: Extract Top 10 items — weighted sort by voteAverage + popularity
-        // Items with both metrics get a combined score; ties broken by popularity
-        const trendingItems = rawSections
-          .flatMap((s) => s.items || [])
+        // D-010: Must deduplicate BEFORE sort+slice to avoid duplicates from
+        // items appearing in multiple sections (e.g., FROM in Trending + Popular).
+        const trendingItems = dedupeContentList(
+          rawSections.flatMap((s) => s.items || [])
+        )
           .filter((item) => item.voteAverage || item.popularity)
           .sort((a, b) => {
             const scoreA = (a.voteAverage || 0) * 10 + Math.min((a.popularity || 0) / 10, 10);
@@ -66,20 +69,18 @@ export default function HomePage() {
         }
 
         // D-003: Extract unique genres from all items for genre rails
+        // D-010: Uses dedupeContentList to ensure no duplicate items per genre
         const genreMap = new Map();
-        rawSections.forEach((section) => {
-          (section.items || []).forEach((item) => {
-            (item.genres || []).forEach((genre) => {
-              const genreName = genre.name || genre;
-              if (!genreMap.has(genreName)) {
-                genreMap.set(genreName, []);
-              }
-              // Avoid duplicate items in genre rails
-              const existingIds = genreMap.get(genreName).map((i) => i._id || i.tmdbId);
-              if (!existingIds.includes(item._id || item.tmdbId)) {
-                genreMap.get(genreName).push(item);
-              }
-            });
+        const allFlatItems = dedupeContentList(
+          rawSections.flatMap((s) => s.items || [])
+        );
+        allFlatItems.forEach((item) => {
+          (item.genres || []).forEach((genre) => {
+            const genreName = genre.name || genre;
+            if (!genreMap.has(genreName)) {
+              genreMap.set(genreName, []);
+            }
+            genreMap.get(genreName).push(item);
           });
         });
         // Only include genres with at least 4 items

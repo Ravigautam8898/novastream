@@ -113,15 +113,30 @@
 | **Implementation Phase** | D-Imp-1 |
 | **Status** | OPEN |
 
+### D-010 — Homepage Metadata Deduplication Failure
+
+| Field | Value |
+|-------|-------|
+| **ID** | D-010 |
+| **Area** | Homepage |
+| **Severity** | High |
+| **Current** | Top 10 rail shows duplicate content items (e.g., FROM, House of the Dragon, The Bear appearing multiple times). Genre rails use a local `_id || tmdbId` check that misses items with only slug or metadataSources identity. |
+| **Expected OTT behavior** | A content item can appear in multiple categories/sections, but must appear exactly once inside any single generated rail or list. |
+| **Root Cause** | `HomePage.jsx` uses `rawSections.flatMap((s) => s.items || [])` to merge items from ALL sections before sort+slice for Top 10. When the same content appears in multiple sections (e.g., Trending AND Popular), it is counted multiple times. Genre rails had a partial dedup but used a local check instead of a shared identity utility. |
+| **Recommended Fix** | 1. Create shared `dedupeContentList()` utility in `client/src/utils/contentIdentity.js` with identity priority: `_id → slug → metadataSources.tmdb.id → tmdbId → imdbId → contentType+title+year fallback`. 2. Apply to Top 10 extraction BEFORE sort. 3. Apply to genre rail item collection. 4. Apply to any future merged metadata lists. |
+| **Implementation Phase** | D-Imp-1 |
+| **Status** | OPEN |
+
 ## Summary
 
 | ID | Title | Severity | Phase | Status |
 |:--:|-------|:--------:|:-----:|:------:|
-| D-001 | No Dynamic Hero Video Preview | Medium | D-Imp-1 | OPEN |
-| D-002 | No Top 10 / Trending Billboard | Medium | D-Imp-1 | OPEN |
-| D-003 | No Genre / Category Rails | Low | D-Imp-1 | OPEN |
-| D-004 | Continue Watching — New Episodes Badge | Low | D-Imp-1 | OPEN |
-| D-005 | No Trending Search / Genre Quick Access | Low | D-Imp-1 | OPEN |
-| D-006 | ContentCard Edge Detection | Low | N/A | CLOSED |
-| D-008 | Hero Action Buttons Not Functional | High | D-Imp-1 | OPEN |
-| D-009 | Navigation Race Condition | Medium | D-Imp-1 | OPEN |
+| D-001 | No Dynamic Hero Video Preview | Medium | D-Imp-1 | 🟡 Fixed |
+| D-002 | No Top 10 / Trending Billboard | Medium | D-Imp-1 | 🟡 Fixed |
+| D-003 | No Genre / Category Rails | Low | D-Imp-1 | 🟡 Fixed |
+| D-004 | Continue Watching — New Episodes Badge | Low | D-Imp-1 | 🟡 Fixed |
+| D-005 | No Trending Search / Genre Quick Access | Low | D-Imp-1 | 🟡 Fixed |
+| D-006 | ContentCard Edge Detection | Low | N/A | ✅ CLOSED |
+| D-008 | Hero Action Buttons Not Functional | High | D-Imp-1 | 🟡 Fixed |
+| D-009 | Navigation Race Condition | Medium | D-Imp-1 | 🟡 Fixed |
+| D-010 | Homepage Metadata Deduplication Failure | High | D-Imp-1 | 🟡 Fix applied |
