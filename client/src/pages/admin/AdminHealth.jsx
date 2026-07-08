@@ -85,6 +85,12 @@ export default function AdminHealth() {
   const uptimeHours = Math.floor(health.uptime / 3600);
   const uptimeMinutes = Math.floor((health.uptime % 3600) / 60);
 
+  // D-012: Metadata system health
+  const metadata = health.metadata || {};
+  const providers = metadata.providers || [];
+  const scheduler = metadata.scheduler || {};
+  const schedulerHealth = scheduler.health || {};
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -132,8 +138,159 @@ export default function AdminHealth() {
         </div>
       </div>
 
+      {/* ── D-012: Metadata System Section ── */}
+      {providers.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <span>📡</span>
+            <span>Metadata System</span>
+            <span className={`text-xs font-normal px-2 py-0.5 rounded-full ${
+              schedulerHealth.status === 'healthy' ? 'bg-green-500/20 text-green-400'
+                : schedulerHealth.status === 'degraded' ? 'bg-yellow-500/20 text-yellow-400'
+                : schedulerHealth.status === 'failing' ? 'bg-red-500/20 text-red-400'
+                : 'bg-netflix-dark-3 text-netflix-text-2'
+            }`}>
+              {schedulerHealth.status || 'starting'}
+            </span>
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {providers.map((provider) => (
+              <div key={provider.id} className="bg-netflix-dark-2 rounded-lg border border-netflix-border/20 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${
+                      provider.health === 'healthy' ? 'bg-green-400'
+                        : provider.health === 'degraded' ? 'bg-yellow-400'
+                        : 'bg-red-400'
+                    }`} />
+                    <h4 className="text-sm font-semibold text-white">{provider.name}</h4>
+                  </div>
+                  <span className="text-[10px] text-netflix-text-3 uppercase">{provider.type}</span>
+                </div>                  <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-netflix-text-3">ID</span>
+                    <span className="text-netflix-text-2 font-mono">{provider.id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-netflix-text-3">Status</span>
+                    <span className={`font-medium capitalize ${
+                      provider.health === 'healthy' ? 'text-green-400'
+                        : provider.health === 'degraded' ? 'text-yellow-400'
+                        : 'text-red-400'
+                    }`}>
+                      {provider.health}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-netflix-text-3">Enabled</span>
+                    <span className={provider.enabled ? 'text-green-400' : 'text-red-400'}>
+                      {provider.enabled ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-netflix-text-3">Capabilities</span>
+                    <span className="text-netflix-text-2">{(provider.capabilities || []).join(', ') || '—'}</span>
+                  </div>
+                  {provider.successRate !== null && (
+                    <div className="flex justify-between">
+                      <span className="text-netflix-text-3">Success Rate</span>
+                      <span className="text-netflix-text-2">{(provider.successRate * 100).toFixed(1)}%</span>
+                    </div>
+                  )}
+                  {provider.avgLatencyMs !== null && (
+                    <div className="flex justify-between">
+                      <span className="text-netflix-text-3">Avg Latency</span>
+                      <span className="text-netflix-text-2">{provider.avgLatencyMs}ms</span>
+                    </div>
+                  )}
+                  {provider.lastCheckAt && (
+                    <div className="flex justify-between">
+                      <span className="text-netflix-text-3">Last Check</span>
+                      <span className="text-netflix-text-2">{new Date(provider.lastCheckAt).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Scheduler info card */}
+            <div className="bg-netflix-dark-2 rounded-lg border border-netflix-border/20 p-4">
+              <h4 className="text-sm font-semibold text-white mb-3">Refresh Scheduler</h4>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-netflix-text-3">Status</span>
+                  <span className={`font-medium ${scheduler.scheduler?.isRunning ? 'text-green-400' : 'text-netflix-text-2'}`}>
+                    {scheduler.scheduler?.isRunning ? 'Running' : 'Stopped'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-netflix-text-3">Mode</span>
+                  <span className="text-netflix-text-2">
+                    Hourly aligned
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-netflix-text-3">Interval</span>
+                  <span className="text-netflix-text-2">{scheduler.scheduler?.intervalMinutes || 60} min</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-netflix-text-3">Last Refresh</span>
+                  <span className="text-netflix-text-2">
+                    {scheduler.history?.lastSuccessAt
+                      ? new Date(scheduler.history.lastSuccessAt).toLocaleString()
+                      : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-netflix-text-3">Next Refresh</span>
+                  <span className="text-netflix-text-2">
+                    {scheduler.scheduler?.nextRefreshTime
+                      ? new Date(scheduler.scheduler.nextRefreshTime).toLocaleString()
+                      : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-netflix-text-3">Cache</span>
+                  <span className={`font-medium ${
+                    schedulerHealth.status === 'healthy' ? 'text-green-400'
+                      : schedulerHealth.status === 'degraded' ? 'text-yellow-400'
+                      : schedulerHealth.status === 'failing' ? 'text-red-400'
+                      : 'text-netflix-text-2'
+                  }`}>
+                    {schedulerHealth.status === 'healthy' ? 'Healthy'
+                      : schedulerHealth.status === 'degraded' ? 'Degraded'
+                      : schedulerHealth.status === 'failing' ? 'Failing'
+                      : 'Starting'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-netflix-text-3">Total Refreshes</span>
+                  <span className="text-netflix-text-2">{scheduler.history?.totalAttempts || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-netflix-text-3">Last Failure</span>
+                  <span className={`${scheduler.history?.lastFailureAt ? 'text-red-400' : 'text-netflix-text-3'}`}>
+                    {scheduler.history?.lastFailureAt
+                      ? new Date(scheduler.history.lastFailureAt).toLocaleString()
+                      : 'None'}
+                  </span>
+                </div>
+                {scheduler.history?.lastError && (
+                  <div className="flex justify-between">
+                    <span className="text-netflix-text-3">Error</span>
+                    <span className="text-red-400 text-[10px] max-w-[150px] truncate" title={scheduler.history.lastError}>
+                      {scheduler.history.lastError}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Detail Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-netflix-dark-2 rounded-lg border border-netflix-border/20 p-4">
           <h3 className="text-sm font-semibold text-white mb-3">CPU Details</h3>
           <div className="space-y-2 text-sm">

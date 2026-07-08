@@ -37,6 +37,7 @@ const fs = require('fs');
 const SystemService = require('../services/system.service');
 const AdminUserService = require('../services/admin-user.service');
 const AdminContentService = require('../services/admin-content.service');
+const MetadataManager = require('../metadata/MetadataManager');
 
 const router = Router();
 
@@ -247,9 +248,14 @@ router.get('/logs', async (req, res, next) => {
 /**
  * GET /api/admin/system/health
  * CPU, memory, disk, uptime, Node.js info.
+ * D-012: Extended to include metadata provider health and scheduler status.
  */
 router.get('/system/health', async (req, res, next) => {
   try {
+    const metadataScheduler = require('../services/metadata-refresh-scheduler.service');
+    const providers = await MetadataManager.listProviders();
+    const schedulerStatus = metadataScheduler.getStatus();
+
     const health = {
       cpu: SystemService.getCpuUsage(),
       memory: SystemService.getMemoryInfo(),
@@ -259,6 +265,27 @@ router.get('/system/health', async (req, res, next) => {
       nodeVersion: process.version,
       platform: process.platform,
       timestamp: new Date().toISOString(),
+      // D-012: Metadata system health
+      metadata: {
+        providers: providers.map((p) => ({
+          id: p.id,
+          name: p.name,
+          version: p.version,
+          type: p.type,
+          priority: p.priority,
+          enabled: p.enabled,
+          capabilities: Object.keys(p.capabilities).filter((k) => p.capabilities[k]),
+          health: p.health.ok === false ? 'offline'
+            : p.health.successRate < 0.3 ? 'degraded'
+            : p.health.ok === true ? 'healthy'
+            : 'unknown',
+          successRate: p.health.successRate ? Number(p.health.successRate.toFixed(3)) : null,
+          avgLatencyMs: p.health.avgLatency !== Infinity && p.health.avgLatency !== null
+            ? Math.round(p.health.avgLatency) : null,
+          lastCheckAt: p.health.lastCheckAt?.toISOString() || null,
+        })),
+        scheduler: schedulerStatus,
+      },
     };
     ApiResponse.success(res, health);
   } catch (err) {

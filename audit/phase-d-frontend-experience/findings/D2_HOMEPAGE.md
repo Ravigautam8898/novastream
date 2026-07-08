@@ -151,7 +151,7 @@
 | **Current** | MetadataRefreshScheduler uses 30-min relative intervals from server start. No retry on failure. Cache can be overwritten with empty results if TMDB is down. No health visibility. |
 | **Expected OTT behavior** | Hourly wall-clock aligned refreshes (HH:00:00). Transient failures never clear cache — old data serves. Exponential backoff retry. Health status endpoint for operators. |
 | **Root Cause** | Scheduler used setInterval relative to server start time. No resilience logic in cache rebuild path. |
-| **Recommended Fix** | 1. Align to HH:00:00 via `msUntilNextHour()` calculation. 2. Add 3-retry exponential backoff (10s, 30s, 60s). 3. Preserve existing cache on rebuild failure. 4. Track health state (lastSuccessAt, failureCount, lastError). 5. Expose via `/api/health/metadata` endpoint. |
+| **Recommended Fix** | 1. Align to HH:00:00 via `msUntilNextHour()` calculation. 2. Add 3-retry exponential backoff (10s, 30s, 60s). 3. Preserve existing cache on rebuild failure. 4. Track health state (lastSuccessAt, failureCount, lastError). 5. Integrate metadata lifecycle visibility into existing Super Admin `System Health` tab — extend `GET /api/admin/system/health` response, extend `AdminHealth.jsx` frontend. No new standalone endpoints or pages. |
 | **Implementation Phase** | D-Imp-1 |
 | **Status** | 🟡 Fix applied |
 
