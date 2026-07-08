@@ -1069,6 +1069,69 @@ The legacy single `sourceId`/`sourceSite` must be replaced with a structured pro
 
 - **C5e (pending):** Auto Provider Source UI
 
+**C5e Status:** ✅ COMPLETE — Auto Provider Source UI
+
+**Backend changes:**
+- `GET /api/external/sources/:slug` — New endpoint returning safe provider info
+  - Normal users see generic labels: "Fast Source", "Backup Source" (no internal IDs)
+  - Admin users see real provider names + debug info
+  - Available sources split by type: `{ fast: [...], backup: [...] }`
+  - Each source has: id, label, type (API/LIGHT_SCRAPER/BROWSER_SCRAPER), status (healthy/degraded), confidence
+- `ProviderManager.resolve()` — Now accepts optional `providerName` param
+  - User's selected provider is promoted to front of mappings queue
+  - Falls back to Auto multi-provider chain if preferred provider fails
+- `ProviderManager.refresh()` — Passes `providerName` through to resolve()
+- `ProviderManager.recoverStream()` — Passes `providerName` through to both recovery phases
+- `POST /api/external/refresh` — Now accepts and passes `providerName`
+- `POST /api/external/recover` — Now accepts and passes `providerName`
+
+**Frontend changes:**
+- `client/src/components/content/SourceSelector.jsx` — NEW component:
+  - Auto ⭐ Recommended as default
+  - Fast Sources section with green health indicator
+  - Backup Sources section with yellow health indicator
+  - Checkmark on selected source
+  - Closes on outside click (useEffect cleanup)
+- `client/src/components/content/VideoPlayer.jsx` — Added `onQualityChange` prop:
+  - Reports user's quality selection when changed from internal quality menu
+  - Uses ref pattern for callback (consistent with existing callbacks)
+- `client/src/api/external-source.api.js` — Added `getSources()` API method
+- `client/src/pages/WatchPage.jsx` — Full C5e integration:
+  - SourceSelector rendered in header (next to title)
+  - Sources fetched via `getSources()` when item loads
+  - `selectedSourceId` state for source preference
+  - `currentQuality` passed to all stream fetch calls (play, refresh, recover)
+  - `selectedSourceId` passed to refresh/recover calls
+  - Proactive refresh timer (`handleRefresh`) uses currentQuality + selectedSourceId
+  - "Playback restored" toast with green checkmark (3-second auto-dismiss)
+  - Episode switch resets recovery state, source preference persists
+  - Recovery details tracked for debug mode
+
+**Quality preservation across recovery:**
+- User selects 1080p → VideoPlayer reports via onQualityChange
+- Recovery Phase 1 (refresh): requests 1080p on same provider
+- Recovery Phase 2 (fallback): requests 1080p on next provider
+- If 1080p unavailable: backend `_pickBestStream()` falls back to 720p
+
+**Manual source selection flow:**
+1. User opens SourceSelector dropdown in header
+2. Selects a specific Fast Source (e.g., "Fast Source 1")
+3. WatchPage stores `selectedSourceId` (relevant source ID)
+4. On error recovery:
+   - Backend `resolve()` promotes the selected provider to front of queue
+   - If selected provider fails → fallback to next in chain (Auto behavior preserved)
+5. User can switch back to Auto anytime by selecting "Auto ⭐"
+
+**C5e files created:**
+- `client/src/components/content/SourceSelector.jsx`
+
+**C5e files modified:**
+- `server/src/providers/ProviderManager.js` — resolve() accepts providerName, promotes preferred mapping
+- `server/src/routes/external-source.routes.js` — GET /sources/:slug endpoint, refresh/recover pass providerName
+- `client/src/api/external-source.api.js` — getSources() method
+- `client/src/components/content/VideoPlayer.jsx` — onQualityChange prop
+- `client/src/pages/WatchPage.jsx` — SourceSelector, quality tracking, source preference, "Playback restored" toast
+
 ### Phase C6 — Auto Provider Source UI (Future)
 - [ ] **Status:** ❌ NOT STARTED
 - Auto mode default (normal users stay on Auto)

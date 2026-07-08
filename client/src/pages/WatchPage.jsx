@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { contentApi } from '../api/content.api';
 import { externalSourceApi } from '../api/external-source.api';
 import VideoPlayer from '../components/content/VideoPlayer';
+import SourceSelector from '../components/content/SourceSelector';
 import EpisodeList from '../components/content/EpisodeList';
 import ContentRow from '../components/content/ContentRow';
 import { PageSkeleton } from '../components/ui/LoadingSkeleton';
@@ -49,8 +50,16 @@ export default function WatchPage() {
   // C5d: Playback recovery state
   const [recoveryStatus, setRecoveryStatus] = useState('idle'); // 'idle' | 'refreshing' | 'fallback' | 'failed'
   const [currentQuality, setCurrentQuality] = useState('720p');
+  const [recoveryDetails, setRecoveryDetails] = useState(null); // { from: string, reason: string } for debug
+  const [playbackRestored, setPlaybackRestored] = useState(false); // C5e: toast for successful recovery
   const recoveryAttemptsRef = useRef(0);
   const recoveryLockRef = useRef(false);
+  const playbackRestoredTimerRef = useRef(null);
+
+  // C5e: Source selector state
+  const [selectedSourceId, setSelectedSourceId] = useState(null); // null = Auto
+  const [sourcesData, setSourcesData] = useState({ fast: [], backup: [] });
+  const [currentProviderInfo, setCurrentProviderInfo] = useState(null);
 
   // Episode selector state (series only)
   const [selectedEpisode, setSelectedEpisode] = useState(null);
@@ -116,6 +125,29 @@ export default function WatchPage() {
     fetchDetail();
   }, [fetchDetail]);
 
+  // ── Fetch available sources for source selector (C5e) ──
+  useEffect(() => {
+    if (!item) return;
+
+    const fetchSources = async () => {
+      try {
+        const result = await externalSourceApi.getSources(slug, {
+          contentType: isMovie ? 'movie' : 'series',
+          season: selectedEpisode?.seasonNumber,
+          episode: selectedEpisode?.episodeNumber,
+        });
+        if (result) {
+          setSourcesData(result.availableSources || { fast: [], backup: [] });
+          setCurrentProviderInfo(result.currentProvider || null);
+        }
+      } catch {
+        // Sources not available — selector will show no sources
+      }
+    };
+
+    fetchSources();
+  }, [item?._id, slug, isMovie, selectedEpisode]);
+
   // ── External Source Stream (primary for content with sourceId) ──
   // If the content has a sourceId from an external provider, use direct CDN streaming.
   // Falls back to local HLS (stream token) if external source is not available.
@@ -145,7 +177,7 @@ export default function WatchPage() {
         const result = await externalSourceApi.play({
           slug,
           contentType,
-          quality: '720p',
+          quality: currentQuality,
           ...(!isMovie && seasonNum && episodeNum ? { season: seasonNum, episode: episodeNum } : {}),
         });
 
@@ -237,7 +269,8 @@ export default function WatchPage() {
       const result = await externalSourceApi.refresh({
         slug,
         contentType,
-        quality: '720p',
+        quality: currentQuality,
+        ...(selectedSourceId ? { providerName: selectedSourceId } : {}),
         ...(!isMovie && seasonNum && episodeNum ? { season: seasonNum, episode: episodeNum } : {}),
       });
 
@@ -437,9 +470,22 @@ export default function WatchPage() {
     setPlaybackError(null); // Reset any previous playback error
     setSavedProgress(0);    // Reset saved progress; will re-fetch
     setRecoveryStatus('idle');
+    setRecoveryDetails(null);
+    setPlaybackRestored(false);
     recoveryAttemptsRef.current = 0;
     recoveryLockRef.current = false;
+    if (playbackRestoredTimerRef.current) {
+      clearTimeout(playbackRestoredTimerRef.current);
+    }
   }, []);
+
+  // ── Source label helper (C5e) ──
+  const sourceLabelForId = (providerId) => {
+    if (!providerId || !sourcesData) return null;
+    const allSources = [...(sourcesData.fast || []), ...(sourcesData.backup || [])];
+    const match = allSources.find(s => s.id === providerId);
+    return match?.label || null;
+  };
 
   // ── Render ──
 
@@ -514,6 +560,13 @@ export default function WatchPage() {
             </Link>
           </div>
           <div className="flex items-center gap-3 min-w-0">
+            {/* C5e: Source Selector */}
+            <SourceSelector
+              sources={sourcesData}
+              currentProvider={currentProviderInfo}
+              selectedSourceId={selectedSourceId}
+              onSourceChange={setSelectedSourceId}
+            />
             <div className="text-right truncate">
               <p className="text-white text-sm font-medium truncate max-w-[200px] md:max-w-[300px]">
                 {currentTitle}
@@ -557,6 +610,18 @@ export default function WatchPage() {
             <p className="text-netflix-text-3 text-xs mt-1">
               {recoveryStatus === 'refreshing' ? 'Refreshing stream source' : 'Trying alternative source'}
             </p>
+          </div>
+        )}
+
+        {/* C5e: Playback restored toast */}
+        {playbackRestored && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-netflix-green/90 text-white text-xs font-medium px-4 py-2 rounded-full shadow-lg animate-fadeIn">
+            <div className="flex items-center gap-2">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+              </svg>
+              Playback restored
+            </div>
           </div>
         )}
 
@@ -609,6 +674,12 @@ export default function WatchPage() {
               title={currentTitle}
               autoplay
               currentQuality={currentQuality}
+              onQualityChange={(quality) => {
+                // C5e: Track user's quality selection for recovery
+                if (quality) {
+                  setCurrentQuality(quality);
+                }
+              }}
               onError={(err) => {
                 // C5d: On playback error, trigger recovery flow instead of immediately failing
                 (async () => {
@@ -640,10 +711,15 @@ export default function WatchPage() {
                       slug,
                       contentType,
                       quality: currentQuality,
+                      // C5e: Pass preferred source if user selected one
+                      ...(selectedSourceId ? { providerName: selectedSourceId } : {}),
                       ...(!isMovie && selectedEpisode?.seasonNumber && selectedEpisode?.episodeNumber
                         ? { season: selectedEpisode.seasonNumber, episode: selectedEpisode.episodeNumber }
                         : {}),
                     };
+
+                    // Track recovery details for debug
+                    const currentLabel = currentProviderInfo?.label || 'current source';
 
                     // Phase 1: Refresh same provider
                     if (attempts === 1) {
@@ -662,12 +738,18 @@ export default function WatchPage() {
                               url: q.url,
                             })));
                           }
+                          setRecoveryDetails({ from: currentLabel, reason: 'URL refreshed', success: true });
+                          // C5e: Show "Playback restored" toast for 3 seconds
+                          setPlaybackRestored(true);
+                          if (playbackRestoredTimerRef.current) clearTimeout(playbackRestoredTimerRef.current);
+                          playbackRestoredTimerRef.current = setTimeout(() => setPlaybackRestored(false), 3000);
                           setRecoveryStatus('idle');
                           recoveryAttemptsRef.current = 0;
                           setPlaybackError(null);
                           return;
                         }
                       } catch {
+                        setRecoveryDetails({ from: currentLabel, reason: 'Refresh failed', success: false });
                         // Phase 1 failed — fall through to phase 2
                       }
                     }
@@ -688,6 +770,12 @@ export default function WatchPage() {
                             url: q.url,
                           })));
                         }
+                        const recoveredLabel = sourceLabelForId(result2.provider) || 'alternative source';
+                        setRecoveryDetails({ from: currentLabel, to: recoveredLabel, reason: 'Provider fallback', success: true });
+                        // C5e: Show "Playback restored" toast for 3 seconds
+                        setPlaybackRestored(true);
+                        if (playbackRestoredTimerRef.current) clearTimeout(playbackRestoredTimerRef.current);
+                        playbackRestoredTimerRef.current = setTimeout(() => setPlaybackRestored(false), 3000);
                         setRecoveryStatus('idle');
                         recoveryAttemptsRef.current = 0;
                         setPlaybackError(null);
@@ -698,6 +786,7 @@ export default function WatchPage() {
                     }
 
                     // Phase 3: All recovery paths exhausted
+                    setRecoveryDetails({ from: currentLabel, reason: 'All sources exhausted', success: false });
                     setRecoveryStatus('failed');
                     setPlaybackError('STREAM_NOT_AVAILABLE');
                   } finally {

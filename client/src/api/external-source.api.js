@@ -71,6 +71,25 @@ export const externalSourceApi = {
   },
 
   /**
+   * Get available source providers for a content item.
+   * C5e: Returns safe provider info (no internal IDs for normal users).
+   *
+   * @param {string} slug - NovaStream content slug
+   * @param {Object} [params]
+   * @param {string} [params.contentType] - 'movie' or 'series'
+   * @param {number} [params.season] - Season number (series only)
+   * @param {number} [params.episode] - Episode number (series only)
+   * @returns {Promise<{mode: string, currentProvider: object, availableSources: {fast: Array, backup: Array}}>}
+   */
+  getSources: async (slug, { contentType, season, episode } = {}) => {
+    const params = { contentType, season, episode };
+    Object.keys(params).forEach(k => params[k] === undefined && delete params[k]);
+
+    const { data } = await apiClient.get(`/external/sources/${slug}`, { params });
+    return data.data;
+  },
+
+  /**
    * Check what streams are available for content (without fetching a URL).
    *
    * @param {string} slug - NovaStream content slug

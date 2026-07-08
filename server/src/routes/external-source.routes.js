@@ -94,7 +94,7 @@ router.post('/play', async (req, res, next) => {
  */
 router.post('/refresh', async (req, res, next) => {
   try {
-    const { slug, contentType, quality, season, episode } = req.body;
+    const { slug, contentType, quality, season, episode, providerName } = req.body;
 
     if (!slug || !contentType) {
       throw ApiError.badRequest('slug and contentType are required');
@@ -106,6 +106,7 @@ router.post('/refresh', async (req, res, next) => {
       quality,
       season: season ? parseInt(season, 10) : undefined,
       episode: episode ? parseInt(episode, 10) : undefined,
+      providerName, // C5e: User-selected preferred provider
     });
 
     ApiResponse.success(res, result, 'Stream URL refreshed');
@@ -120,7 +121,8 @@ router.post('/refresh', async (req, res, next) => {
  * C5d: Orchestrated recovery — Phase 1 refresh, Phase 2 fallback.
  * Includes retry storm protection (max 3 per user+content+session).
  *
- * Body: Same as /play (quality is preserved during recovery)
+ * Body: Same as /play, plus:
+ *   providerName  (string, optional) — C5e: User-selected preferred provider
  * Response: Same as /play (on success) or 503 "Stream temporarily unavailable"
  */
 router.post('/recover', async (req, res, next) => {
@@ -145,6 +147,7 @@ router.post('/recover', async (req, res, next) => {
       season: season ? parseInt(season, 10) : undefined,
       episode: episode ? parseInt(episode, 10) : undefined,
       userId,
+      providerName: req.body.providerName, // C5e: User-selected provider
     });
 
     const response = {
@@ -196,6 +199,115 @@ router.get('/stream-info/:slug', async (req, res, next) => {
     });
 
     ApiResponse.success(res, result, 'Stream info retrieved');
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/external/sources/:slug
+ * Get available source providers for a content item.
+ * C5e: Returns safe provider info (no internal IDs for normal users).
+ * Admin/debug users see real provider names.
+ *
+ * Query params:
+ *   contentType   (string, required) — 'movie' or 'series'
+ *   season        (number, optional) — Season number (series only)
+ *   episode       (number, optional) — Episode number (series only)
+ *
+ * Response:
+ *   mode              (string) — 'auto' (always auto unless user manually selects)
+ *   currentProvider   (object) — Currently used provider info
+ *   availableSources  (array) — Available sources with labels and status
+ *   debug             (object|null) — Internal details (admin/debug only)
+ */
+router.get('/sources/:slug', async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+    const { contentType, season, episode } = req.query;
+
+    if (!contentType) {
+      throw ApiError.badRequest('contentType query param is required');
+    }
+
+    const isAdmin = req.user?.role === 'admin';
+
+    const Content = require('../models/Content.model');
+    const ProviderManager = require('../providers/ProviderManager');
+    const content = await Content.findOne({ slug, isActive: true }).lean();
+    if (!content) {
+      throw ApiError.notFound(`Content '${slug}' not found`);
+    }
+
+    // Get all provider mappings for this content
+    const mappings = ProviderManager._getProviderMappings(content);
+
+    // Get all registered providers with health info
+    const allProviders = await ProviderManager.listProviders();
+
+    // Build available sources with safe labels
+    const availableSources = [];
+    let currentProviderInfo = null;
+
+    for (const mapping of mappings) {
+      const regProvider = allProviders.find(p =>
+        p.id === mapping.providerName ||
+        (p.config?.legacyIds || []).includes(mapping.providerName)
+      );
+
+      const providerType = regProvider?.type || 'API';
+      const isHealthy = regProvider?.health?.ok !== false;
+
+      // Determine safe label based on type
+      const typeLabel = providerType === 'API' ? 'Fast Source' : 'Backup Source';
+      const label = isAdmin
+        ? regProvider?.name || mapping.providerName
+        : typeLabel;
+
+      const source = {
+        id: isAdmin ? mapping.providerName : `source-${availableSources.length + 1}`,
+        label,
+        type: providerType,
+        status: isHealthy ? 'healthy' : 'degraded',
+        confidence: mapping.confidenceScore || 0,
+      };
+
+      availableSources.push(source);
+
+      // First mapping is the current/primary provider
+      if (!currentProviderInfo) {
+        currentProviderInfo = {
+          type: providerType,
+          qualities: ['480p', '720p', '1080p'],
+          label,
+          status: isHealthy ? 'healthy' : 'degraded',
+        };
+      }
+    }
+
+    // Separate by type for the UI
+    const fastSources = availableSources.filter(s => s.type === 'API');
+    const backupSources = availableSources.filter(s => s.type !== 'API');
+
+    const response = {
+      mode: 'auto',
+      currentProvider: currentProviderInfo || { type: 'API', qualities: ['480p', '720p', '1080p'], label: 'Fast Source', status: 'unknown' },
+      availableSources: {
+        fast: fastSources,
+        backup: backupSources,
+      },
+    };
+
+    // Debug info for admin users
+    if (isAdmin) {
+      response.debug = {
+        totalProviders: allProviders.length,
+        totalMappings: mappings.length,
+        resolvedProvider: currentProviderInfo?.label || null,
+      };
+    }
+
+    ApiResponse.success(res, response, 'Content sources retrieved');
   } catch (err) {
     next(err);
   }

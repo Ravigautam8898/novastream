@@ -41,7 +41,7 @@ NovaStream currently has **three independent governance tracks** that run in par
 | **Phase C5b** | Nova Identity Registration — registerOrUpdate(), safe merge, audit script ✅ 🟡 ACTIVE |
 | **Phase C5c** | TMDB Bridge Removal — frontend tmdb-* detection removed, slug-only navigation ✅ 🟡 ACTIVE |
 | **Phase C5d** | Playback Recovery + Stream Lifecycle UX — recoverStream(), 3-tier recovery, retry storm protection ✅ 🟡 ACTIVE |
-| **Phase C5e** | Auto Provider Source UI — Auto mode default, Fast/Backup source labels ❌ PENDING |
+| **Phase C5e** | Auto Provider Source UI — SourceSelector, GET /api/external/sources, manual selection, quality tracking ✅ 🟡 ACTIVE |
 | **Proposal** | `phase-c-provider-system/FINDINGS.md` |
 | **SDK Guide** | `phase-c-provider-system/PROVIDER_DEVELOPMENT.md` |
 | **Decisions** | C-001 through C-013 frozen as baseline |

@@ -309,9 +309,10 @@ class ProviderManager {
    * @param {string} [params.quality] - Requested quality
    * @param {number} [params.season] - Season number (series only)
    * @param {number} [params.episode] - Episode number (series only)
+   * @param {string} [params.providerName] - Preferred provider (user selection, C5e)
    * @returns {Promise<{url: string, expiresAt: number, provider: string, cached: boolean, allQualities?: Array}>}
    */
-  static async resolve({ slug, contentType, quality, season, episode }) {
+  static async resolve({ slug, contentType, quality, season, episode, providerName }) {
     // 1. Lookup content
     const content = await Content.findOne({ slug, isActive: true }).lean();
     if (!content) {
@@ -319,10 +320,22 @@ class ProviderManager {
     }
 
     // 2. Get ALL provider mappings (multi-provider fallback — C4b)
-    const mappings = this._getProviderMappings(content);
+    let mappings = this._getProviderMappings(content);
 
     if (!mappings || mappings.length === 0) {
       throw ApiError.notFound(`Content '${slug}' has no provider mapping. Run content sync first.`);
+    }
+
+    // C5e: If user selected a specific provider, promote it to the front of the queue
+    if (providerName) {
+      const preferredIdx = mappings.findIndex(m =>
+        m.providerName === providerName || m.legacySourceSite === providerName
+      );
+      if (preferredIdx > 0) {
+        const [preferred] = mappings.splice(preferredIdx, 1);
+        mappings.unshift(preferred);
+        logger.info({ slug, preferredProvider: providerName }, 'ProviderManager: user-preferred provider promoted to front');
+      }
     }
 
     // 3. Try each provider mapping in priority order
@@ -552,10 +565,10 @@ class ProviderManager {
   /**
    * Refresh a stream URL by invalidating the cache and re-resolving.
    *
-   * @param {Object} params - Same as resolve()
+   * @param {Object} params - Same as resolve(), plus optional providerName
    * @returns {Promise<Object>} Stream result
    */
-  static async refresh({ slug, contentType, quality, season, episode }) {
+  static async refresh({ slug, contentType, quality, season, episode, providerName }) {
     const content = await Content.findOne({ slug, isActive: true }).lean();
     if (!content) {
       throw ApiError.notFound(`Content '${slug}' not found`);
@@ -566,14 +579,15 @@ class ProviderManager {
       throw ApiError.notFound(`Content '${slug}' has no provider mapping`);
     }
 
-    const { providerName, providerContentId } = providerMapping;
+    const { providerName: primaryName, providerContentId } = providerMapping;
+    const actualProviderName = providerName || primaryName;
     let cacheKey;
     if (contentType === 'movie') {
-      cacheKey = `${providerName}:movie:${providerContentId}:${quality || '720p'}`;
+      cacheKey = `${actualProviderName}:movie:${providerContentId}:${quality || '720p'}`;
     } else {
       const s = season || 1;
       const e = episode || 1;
-      cacheKey = `${providerName}:series:${providerContentId}:s${s}:e${e}:${quality || '720p'}`;
+      cacheKey = `${actualProviderName}:series:${providerContentId}:s${s}:e${e}:${quality || '720p'}`;
     }
 
     // Delete existing cache entry
@@ -581,8 +595,8 @@ class ProviderManager {
       await streamCacheCol().deleteOne({ _id: cacheKey });
     } catch {}
 
-    // Re-resolve
-    return this.resolve({ slug, contentType, quality, season, episode });
+    // Re-resolve with provider preference
+    return this.resolve({ slug, contentType, quality, season, episode, providerName });
   }
 
   // ── Cache Helpers ──
@@ -915,9 +929,10 @@ class ProviderManager {
    * @param {number} [params.season] - Season number (series)
    * @param {number} [params.episode] - Episode number (series)
    * @param {string} [params.userId] - User ID for storm protection
+   * @param {string} [params.providerName] - Preferred provider (user selection, C5e)
    * @returns {Promise<{url: string, expiresAt: number, provider: string, allQualities?: Array}>}
    */
-  static async recoverStream({ slug, contentType, quality, season, episode, userId }) {
+  static async recoverStream({ slug, contentType, quality, season, episode, userId, providerName }) {
     const stormKey = `${userId || 'anonymous'}:${slug}:${contentType}:${season || 1}:${episode || 1}`;
     const currentAttempts = recoveryStormCount.get(stormKey) || 0;
 
@@ -939,7 +954,8 @@ class ProviderManager {
     // ── Phase 1: Refresh same provider (clear cache, re-resolve) ──
     logger.info({ slug, attempt: currentAttempts + 1 }, 'ProviderManager: recovery phase 1 — refresh same provider');
     try {
-      const result = await this.refresh({ slug, contentType, quality, season, episode });
+      // C5e: If user selected a provider, pass it to refresh
+      const result = await this.refresh({ slug, contentType, quality, season, episode, providerName });
       // Success — reset storm counter
       recoveryStormCount.delete(stormKey);
       logger.info({ slug, provider: result.provider }, 'ProviderManager: recovery phase 1 succeeded');
@@ -952,7 +968,8 @@ class ProviderManager {
     logger.info({ slug, attempt: currentAttempts + 1 }, 'ProviderManager: recovery phase 2 — fallback provider chain');
     try {
       // Full resolve() tries all provider mappings in order (multi-provider fallback)
-      const result = await this.resolve({ slug, contentType, quality, season, episode });
+      // C5e: If user selected a provider, pass it; the preferred provider is tried first
+      const result = await this.resolve({ slug, contentType, quality, season, episode, providerName });
       // Success — reset storm counter
       recoveryStormCount.delete(stormKey);
       logger.info({ slug, provider: result.provider }, 'ProviderManager: recovery phase 2 succeeded — fallback provider resolved');
